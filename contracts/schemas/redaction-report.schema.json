@@ -10,10 +10,19 @@
     "artifact_digest": {"type": "string"},
     "report": {
       "type": "object",
-      "required": ["finding_count", "findings"],
+      "required": [
+        "finding_count",
+        "findings",
+        "uncertain_sensitive_material",
+        "detector_sources",
+        "unavailable_integrations"
+      ],
       "properties": {
         "finding_count": {"type": "integer", "minimum": 0},
-        "findings": {"type": "array", "items": {"type": "object"}}
+        "findings": {"type": "array", "items": {"type": "object"}},
+        "uncertain_sensitive_material": {"type": "boolean"},
+        "detector_sources": {"type": "array", "items": {"type": "string"}},
+        "unavailable_integrations": {"type": "array", "items": {"type": "object"}}
       },
       "additionalProperties": true
     }

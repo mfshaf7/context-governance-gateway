@@ -14,7 +14,8 @@
     "token_output_budget_used",
     "safe_context_excerpt",
     "policy_profile",
-    "admission_decision"
+    "admission_decision",
+    "context_admission"
   ],
   "properties": {
     "purpose": {"const": "model-safe context packet"},
@@ -27,7 +28,18 @@
     "token_output_budget_used": {"type": "object"},
     "safe_context_excerpt": {"type": "string"},
     "policy_profile": {"enum": ["casual", "developer", "enterprise"]},
-    "admission_decision": {"type": "object"}
+    "admission_decision": {"type": "object"},
+    "context_admission": {
+      "type": "object",
+      "required": ["profile", "admission_decision", "decisions", "opa"],
+      "properties": {
+        "profile": {"enum": ["casual", "developer", "enterprise"]},
+        "admission_decision": {"type": "object"},
+        "decisions": {"type": "array", "items": {"type": "object"}},
+        "opa": {"type": "object"}
+      },
+      "additionalProperties": true
+    }
   },
   "additionalProperties": true
 }

@@ -15,7 +15,9 @@
     "receipt_path",
     "classification",
     "profile",
-    "budget"
+    "budget",
+    "detectors",
+    "policy"
   ],
   "properties": {
     "schema_version": {"const": 1},
@@ -29,7 +31,17 @@
     "receipt_path": {"type": "string"},
     "classification": {"type": "object"},
     "profile": {"enum": ["casual", "developer", "enterprise"]},
-    "budget": {"type": "object"}
+    "budget": {"type": "object"},
+    "detectors": {
+      "type": "object",
+      "required": ["sources", "unavailable_integrations"],
+      "properties": {
+        "sources": {"type": "array", "items": {"type": "string"}},
+        "unavailable_integrations": {"type": "array", "items": {"type": "object"}}
+      },
+      "additionalProperties": true
+    },
+    "policy": {"type": "object"}
   },
   "additionalProperties": true
 }

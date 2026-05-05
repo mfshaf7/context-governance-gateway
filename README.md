@@ -127,6 +127,9 @@ The current service-mode foundation adds source contracts only:
 - Mutating admission is denied unless `CGG_RUNTIME_PROFILE_STATE=active`.
 - `packages/context_storage` provides local filesystem custody plus explicit
   PostgreSQL/pgvector and MinIO/S3 integration seams.
+- `packages/context_policy` provides the deterministic context-admission policy
+  evaluator, detector registry, OPA seam, and Presidio/Gitleaks/TruffleHog
+  scanner seams.
 - The API reuses `ContextPipeline`; it does not create a second redaction,
   projection, packet, receipt, or ledger path.
 
@@ -143,6 +146,8 @@ Enterprise mode must preserve auditability:
 - artifact digest
 - manifest
 - redaction report
+- context-admission policy decisions
+- detector sources and unavailable external scanner integrations
 - model-safe packet
 - operator receipt
 - ledger event
@@ -164,8 +169,8 @@ python3 -m pip install -e .
 Run without installation from the repo root:
 
 ```bash
-PYTHONPATH=packages/context_core/src:apps/cli/src python3 -m cgg_cli init
-PYTHONPATH=packages/context_core/src:apps/cli/src python3 -m cgg_cli run --profile developer --budget 2000 -- python3 -c "print('hello')"
+PYTHONPATH=packages/context_core/src:packages/context_policy/src:apps/cli/src python3 -m cgg_cli init
+PYTHONPATH=packages/context_core/src:packages/context_policy/src:apps/cli/src python3 -m cgg_cli run --profile developer --budget 2000 -- python3 -c "print('hello')"
 ```
 
 Supported Phase 1 commands:
