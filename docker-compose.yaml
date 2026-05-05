@@ -1,0 +1,9 @@
+services:
+  api:
+    profiles:
+      - future-service-mode
+    image: python:3.12-slim
+    command:
+      - python
+      - -c
+      - "raise SystemExit('CGG API service mode is not implemented in Phase 1. Admit a dev-integration profile before enabling this service.')"

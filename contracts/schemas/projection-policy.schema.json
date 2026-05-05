@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.context-governance-gateway.local/projection-policy.schema.json",
+  "title": "Projection Policy",
+  "type": "object",
+  "required": ["profile", "deny_raw_projection_on_findings"],
+  "properties": {
+    "profile": {"enum": ["casual", "developer", "enterprise"]},
+    "deny_raw_projection_on_findings": {"type": "boolean"},
+    "include_error_windows": {"type": "boolean"},
+    "suppress_excerpt_on_findings": {"type": "boolean"},
+    "default_budget_tokens": {"type": "integer", "minimum": 1}
+  },
+  "additionalProperties": false
+}

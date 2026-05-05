@@ -99,3 +99,43 @@ Enterprise mode must preserve auditability:
 This repository is currently a governed foundation shell. Add implementation
 only through the accepted ART plan and keep source changes tied to Review
 Packet evidence when the work is source-backed.
+
+## Phase 1 CLI
+
+Install in editable mode:
+
+```bash
+python3 -m pip install -e .
+```
+
+Run without installation from the repo root:
+
+```bash
+PYTHONPATH=packages/context_core/src:apps/cli/src python3 -m cgg_cli init
+PYTHONPATH=packages/context_core/src:apps/cli/src python3 -m cgg_cli run --profile developer --budget 2000 -- python3 -c "print('hello')"
+```
+
+Supported Phase 1 commands:
+
+```bash
+cgg init
+cgg run --profile developer --budget 2000 -- <command>
+cgg pack --path <file-or-directory> --budget 3000
+cgg project --artifact <artifact-path> --profile developer
+cgg inspect --packet <packet-path>
+```
+
+Generated local outputs:
+
+- `.cgg/artifacts/raw/`
+- `.cgg/artifacts/redacted/`
+- `.cgg/manifests/`
+- `.cgg/packets/`
+- `.cgg/receipts/`
+- `.cgg/ledger.jsonl`
+
+The packet includes purpose, source command/path, timestamp, artifact digest,
+failure summary, key signals, redactions, budget use, safe excerpt, and policy
+profile. The receipt explains what was captured, what was redacted, what was
+included, what was denied or suppressed, where the raw artifact is stored, the
+digest, and the profile decision.

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.context-governance-gateway.local/model-safe-packet.schema.json",
+  "title": "Model Safe Packet",
+  "type": "object",
+  "required": [
+    "purpose",
+    "source",
+    "captured_at",
+    "artifact_digest",
+    "failure_summary",
+    "key_relevant_signals",
+    "redactions_applied",
+    "token_output_budget_used",
+    "safe_context_excerpt",
+    "policy_profile",
+    "admission_decision"
+  ],
+  "properties": {
+    "purpose": {"const": "model-safe context packet"},
+    "source": {"type": "object"},
+    "captured_at": {"type": "string"},
+    "artifact_digest": {"type": "string"},
+    "failure_summary": {"type": "object"},
+    "key_relevant_signals": {"type": "array", "items": {"type": "string"}},
+    "redactions_applied": {"type": "array", "items": {"type": "object"}},
+    "token_output_budget_used": {"type": "object"},
+    "safe_context_excerpt": {"type": "string"},
+    "policy_profile": {"enum": ["casual", "developer", "enterprise"]},
+    "admission_decision": {"type": "object"}
+  },
+  "additionalProperties": true
+}
