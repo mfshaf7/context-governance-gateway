@@ -1,7 +1,6 @@
 # Context Governance Gateway
 
-`context-governance-gateway` is the implementation home for Operational
-Context Governance and Context Admission Control.
+`context-governance-gateway` is the implementation home for Operational Context Governance and Context Admission Control.
 
 This is not a log platform, prompt compressor, LLM gateway, observability
 backend, object store, or security scanner. Its purpose is to govern raw
@@ -53,6 +52,8 @@ raw context
   admission, version pinning, promotion, and adoption gates.
 - `security-architecture` owns trust-boundary review, sensitive-data custody
   expectations, and security acceptance.
+- `operator-orchestration-service` owns broker and operator workflow adapters
+  that may later consume CGG packets through governed integration.
 - `workspace-governance-control-fabric` may consume compact context packets and
   receipts, but this repo does not replace WGCF.
 

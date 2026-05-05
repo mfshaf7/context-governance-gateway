@@ -20,6 +20,7 @@ Read `README.md` first.
 - workspace contracts or workspace-root routing
 - Workspace Governance Control Fabric validation planning, readiness decisions,
   or ART mutation authority
+- operator-orchestration-service broker or workflow-adapter authority
 - platform deployment authority, release gates, or promotion state
 - security standards, security acceptance, or review-output ownership
 - custom LLM gateway, custom scanner, custom observability backend, or custom
