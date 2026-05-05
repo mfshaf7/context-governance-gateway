@@ -61,6 +61,8 @@ Treat these as high-risk review findings:
 
 - raw operational context can reach a model-safe packet without redaction,
   budgeting, and policy admission
+- the security binding, platform deployment boundary, or dev-integration
+  admission posture drifts from the active workspace contract
 - uncertain sensitive material is best-effort included instead of denied from
   model projection
 - the repo starts owning workspace contracts, WGCF readiness, ART mutation,
