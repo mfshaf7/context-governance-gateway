@@ -38,6 +38,13 @@ Read `README.md` first.
   active.
 - Preserve raw artifacts locally or in the approved artifact backend, but deny
   raw projection into model-safe packets by default.
+- Keep security architecture binding references current in `README.md` and
+  this file. Required refs are the security review checklist, the current dated
+  CGG review, the AI security standard, and the AI and agentic domain:
+  - https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/security-review-checklist.md
+  - https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-05-05-context-governance-gateway-phase-1-local-custody.md
+  - https://github.com/mfshaf7/security-architecture/blob/main/docs/standards/ai-security-and-governance.md
+  - https://github.com/mfshaf7/security-architecture/blob/main/docs/architecture/domains/ai-and-agentic.md
 - Prefer deterministic detection first: command metadata, file extension,
   error patterns, secret-like regexes, token/JWT/private-key detection,
   internal hostname/private IP masking, env-var suppression, repeated log

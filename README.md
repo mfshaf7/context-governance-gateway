@@ -56,6 +56,20 @@ raw context
 - `workspace-governance-control-fabric` may consume compact context packets and
   receipts, but this repo does not replace WGCF.
 
+## Security Binding
+
+CGG handles sensitive operational context and AI-adjacent packet projection, so
+active workspace admission depends on the security architecture binding:
+
+- Security review checklist:
+  [docs/reviews/security-review-checklist.md](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/security-review-checklist.md)
+- Current dated security review:
+  [docs/reviews/components/2026-05-05-context-governance-gateway-phase-1-local-custody.md](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-05-05-context-governance-gateway-phase-1-local-custody.md)
+- AI security standard:
+  [docs/standards/ai-security-and-governance.md](https://github.com/mfshaf7/security-architecture/blob/main/docs/standards/ai-security-and-governance.md)
+- AI and agentic domain:
+  [docs/architecture/domains/ai-and-agentic.md](https://github.com/mfshaf7/security-architecture/blob/main/docs/architecture/domains/ai-and-agentic.md)
+
 ## Current Phase
 
 The current accepted ART scope is Phase 1 local foundation:
