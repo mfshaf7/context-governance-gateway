@@ -13,8 +13,8 @@ Session manifest:
 Generic promotion report:
 - ${PROMOTION_REPORT}
 
-This profile is build-admitted for bounded service implementation and cannot
-promote to stage yet.
+Profile lifecycle:
+- ${PROFILE_LIFECYCLE}
 
 Before governed stage rehearsal:
 

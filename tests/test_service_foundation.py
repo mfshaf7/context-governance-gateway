@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from cgg_api import ContextGatewayService, RuntimeGateError, RuntimeSettings
+from cgg_api.worker import write_heartbeat
 from context_storage import LocalContextStore, MinioS3ArtifactCustody, PostgresPgvectorMetadataStore, StorageSettings
 
 
@@ -79,6 +80,15 @@ class ServiceFoundationTests(unittest.TestCase):
             self.assertEqual(local.artifact_custody(root).backend, "local-filesystem")
             self.assertEqual(external.metadata_store(root).backend, "postgres-pgvector")
             self.assertEqual(external.artifact_custody(root).backend, "minio-s3")
+
+    def test_worker_writes_safe_runtime_heartbeat(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            heartbeat = write_heartbeat(Path(tmp), iteration=7)
+
+            payload = heartbeat.read_text(encoding="utf-8")
+            self.assertIn('"component": "context-governance-gateway-worker"', payload)
+            self.assertIn('"iteration": 7', payload)
+            self.assertNotIn("API_TOKEN", payload)
 
 
 if __name__ == "__main__":
