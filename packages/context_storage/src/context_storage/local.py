@@ -44,6 +44,9 @@ class LocalContextStore:
     def get_receipt(self, artifact_id: str) -> dict[str, object]:
         return self._read_json(self.workspace / "receipts" / f"{artifact_id}.receipt.json")
 
+    def get_redaction_report(self, artifact_id: str) -> dict[str, object]:
+        return self._read_json(self.workspace / "manifests" / f"{artifact_id}.redaction-report.json")
+
     def get_redacted_artifact_text(self, artifact_id: str) -> str:
         return (self.workspace / "artifacts" / "redacted" / f"{artifact_id}.txt").read_text(
             encoding="utf-8",
