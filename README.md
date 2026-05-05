@@ -130,6 +130,9 @@ The current service-mode foundation adds source contracts only:
 - `packages/context_policy` provides the deterministic context-admission policy
   evaluator, detector registry, OPA seam, and Presidio/Gitleaks/TruffleHog
   scanner seams.
+- `packages/context_adapters` provides downstream packet and receipt adapter
+  contracts for WGCF, OOS, AI tools, and operators without mutation, approval,
+  model-gateway, or raw-artifact authority.
 - The API reuses `ContextPipeline`; it does not create a second redaction,
   projection, packet, receipt, or ledger path.
 
@@ -148,6 +151,8 @@ Enterprise mode must preserve auditability:
 - redaction report
 - context-admission policy decisions
 - detector sources and unavailable external scanner integrations
+- adapter envelopes for downstream consumers when packets are projected out of
+  CGG
 - model-safe packet
 - operator receipt
 - ledger event

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.context-governance-gateway.local/adapter-envelope.schema.json",
+  "title": "Adapter Envelope",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "consumer",
+    "purpose",
+    "packet_reference",
+    "authority",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "consumer": {"type": "string"},
+    "purpose": {"type": "string"},
+    "packet_reference": {
+      "type": "object",
+      "required": [
+        "artifact_digest",
+        "captured_at",
+        "policy_profile",
+        "raw_projection",
+        "redaction_count",
+        "source"
+      ],
+      "properties": {
+        "artifact_digest": {"type": "string"},
+        "captured_at": {"type": "string"},
+        "policy_profile": {"enum": ["casual", "developer", "enterprise"]},
+        "raw_projection": {"type": "string"},
+        "redaction_count": {"type": "integer", "minimum": 0},
+        "source": {"type": "object"}
+      },
+      "additionalProperties": true
+    },
+    "receipt_reference": {
+      "type": "object",
+      "required": ["artifact_id", "artifact_digest", "raw_projection", "budget_truncated"],
+      "properties": {
+        "artifact_id": {"type": "string"},
+        "artifact_digest": {"type": "string"},
+        "raw_projection": {"type": "string"},
+        "budget_truncated": {"type": "boolean"}
+      },
+      "additionalProperties": true
+    },
+    "authority": {
+      "type": "object",
+      "required": [
+        "may_mutate_art",
+        "may_approve_governance",
+        "may_route_model_traffic",
+        "may_read_raw_artifact",
+        "authority"
+      ],
+      "properties": {
+        "may_mutate_art": {"const": false},
+        "may_approve_governance": {"const": false},
+        "may_route_model_traffic": {"const": false},
+        "may_read_raw_artifact": {"const": false},
+        "authority": {"const": "context_projection_only"}
+      },
+      "additionalProperties": true
+    },
+    "payload": {"type": "object"}
+  },
+  "additionalProperties": false
+}
