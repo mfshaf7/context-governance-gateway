@@ -12,8 +12,9 @@ Read `README.md` first.
 - model-safe and operator-safe packet generation
 - operator receipts, redaction reports, manifests, artifact digests, and local
   ledger behavior
-- later API, worker, storage adapter, and downstream adapter implementation
-  after the runtime lane is build-admitted
+- active local dev-integration API, worker, storage proof, and later governed
+  storage adapter and downstream adapter implementation after the relevant
+  runtime gates are admitted
 
 ## What This Repo Does Not Own
 
@@ -37,6 +38,9 @@ Read `README.md` first.
 - `build-admitted` authorizes bounded service implementation only. Its `up`,
   `access`, and shared-runner smoke paths must fail closed until workspace,
   platform, and security activation promote it to `active`.
+- `active` authorizes only local-k3s dev-integration service-shape proof. It
+  does not authorize governed stage/prod deployment, raw model projection,
+  downstream adapters, debug override, or CGG approval authority.
 - Preserve raw artifacts locally or in the approved artifact backend, but deny
   raw projection into model-safe packets by default.
 - Keep security architecture binding references current in `README.md` and
@@ -46,6 +50,7 @@ Read `README.md` first.
   - https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/security-review-checklist.md
   - https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-05-05-context-governance-gateway-phase-1-local-custody.md
   - https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-05-05-context-governance-gateway-service-mode-admission-gates.md
+  - https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-05-05-context-governance-gateway-active-devint-runtime.md
   - https://github.com/mfshaf7/security-architecture/blob/main/docs/architecture/components/context-governance-gateway/service-mode-security-requirements.md
   - https://github.com/mfshaf7/security-architecture/blob/main/docs/standards/ai-security-and-governance.md
   - https://github.com/mfshaf7/security-architecture/blob/main/docs/architecture/domains/ai-and-agentic.md

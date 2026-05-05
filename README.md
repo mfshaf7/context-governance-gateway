@@ -29,8 +29,9 @@ raw context
   budgeting logic.
 - Context manifests, redaction reports, model-safe packets, operator receipts,
   artifact digests, and audit-ledger events.
-- Later API, worker, storage-adapter, and downstream adapter implementation
-  once the runtime lane is build-admitted.
+- API, worker, local dev-integration storage proof, and later
+  storage-adapter/downstream-adapter implementation after the relevant runtime
+  lane gates are admitted.
 
 ## What This Repo Does Not Own
 
@@ -68,6 +69,8 @@ active workspace admission depends on the security architecture binding:
   [docs/reviews/components/2026-05-05-context-governance-gateway-phase-1-local-custody.md](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-05-05-context-governance-gateway-phase-1-local-custody.md)
 - Service-mode security delta:
   [docs/reviews/components/2026-05-05-context-governance-gateway-service-mode-admission-gates.md](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-05-05-context-governance-gateway-service-mode-admission-gates.md)
+- Active dev-integration security delta:
+  [docs/reviews/components/2026-05-05-context-governance-gateway-active-devint-runtime.md](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-05-05-context-governance-gateway-active-devint-runtime.md)
 - Service-mode security requirements:
   [docs/architecture/components/context-governance-gateway/service-mode-security-requirements.md](https://github.com/mfshaf7/security-architecture/blob/main/docs/architecture/components/context-governance-gateway/service-mode-security-requirements.md)
 - AI security standard:
@@ -90,37 +93,39 @@ Runtime-lane decision:
 
 - Phase 1 is `local-only`.
 - The `context-governance-gateway` `dev-integration` profile is
-  `build-admitted`, which authorizes bounded service implementation after
-  platform and security gates.
-- `build-admitted` is not self-serve launchable. `up`, `access`, and
-  shared-runner smoke remain denied until the profile becomes `active`.
-- Profile activation still requires runnable owner commands, read-only smoke,
+  `active`, which authorizes local-k3s service-shape proof through the shared
+  platform runner.
+- Active dev-integration is local evidence only. It does not authorize governed
+  stage or production runtime, raw model projection, downstream adapters,
+  debug override, or CGG approval authority.
+- Profile activation is backed by runnable owner commands, read-only smoke,
   `platform-engineering` activation evidence, and current
-  `security-architecture` evidence.
+  `security-architecture` active-devint evidence.
 
 ## Dev-Integration Profile
 
-The build-admitted profile lives at:
+The active profile lives at:
 
 - `dev-integration/profiles/context-governance-gateway/profile.yaml`
 - `dev-integration/profiles/context-governance-gateway/README.md`
 
 Current command behavior:
 
-- `status` reports the build-admitted or active runtime shape.
+- `status` reports the active local dev-integration runtime shape.
 - `up` creates the local-k3s namespace, PVCs, PostgreSQL, MinIO, API, worker,
   and API service only after the workspace registry marks the profile active.
 - `access` port-forwards the API to `http://localhost:18280` only when active.
-- `smoke` is read-only. Build-admitted smoke stays static; active smoke reads
+- `smoke` is read-only. Active smoke reads
   health, readiness, packet, receipt, manifest, dashboard, metrics, and trace
   surfaces from seeded safe devint context.
 - `down` scales active deployments to zero while preserving persistent volumes.
 - `reset` removes the active namespace and local state.
 - `promote-check` lists the gates required before governed stage rehearsal.
 
-Do not interpret the build-admitted profile as an active local-k3s runtime.
-It is an implementation authorization. Runtime launch remains denied until the
-workspace profile lifecycle is promoted to `active` by governed evidence.
+Do not interpret the active dev-integration profile as governed stage or
+production readiness. It is a local service-shape proof lane; governed runtime
+launch still requires later platform promotion, security review, and release
+gates.
 
 ## Service-Mode Source Contract
 

@@ -1,21 +1,21 @@
 # Context Governance Gateway Dev-Integration Profile
 
-This is the build-admitted `dev-integration` profile for Context Governance
-Gateway service-mode implementation.
+This is the active local `dev-integration` profile for Context Governance
+Gateway service-mode proof.
 
 Lifecycle:
 
-- `build-admitted`
-- not self-serve launchable
-- bounded service implementation is authorized by workspace, platform, and
-  security gates
-- runtime creation is denied until workspace, platform, and security activation
-  promote the profile to `active`
+- `active`
+- self-serve launchable through the shared platform runner
+- local service-shape proof is authorized by workspace, platform, and security
+  gates
+- governed stage/prod runtime, raw model projection, downstream adapters,
+  debug override, and CGG approval authority remain blocked
 
-The profile exists so API, worker, persistent storage, dashboard, broker
-adapter, or cross-repo runtime work cannot start from chat memory or local
-convenience. `build-admitted` authorizes the bounded owner-repo implementation
-front; it does not make the runtime launchable.
+The profile exists so API, worker, persistent storage, dashboard metadata,
+broker adapter, or cross-repo runtime work cannot start from chat memory or
+local convenience. `active` authorizes only the local service-shape proof lane;
+it does not make CGG a governed stage/prod service or approval authority.
 
 ## What It Runs When Active
 
@@ -30,9 +30,8 @@ When admitted, the profile is expected to run:
 - read-only smoke that proves admission health without projecting raw
   operational context
 
-The runtime is implemented in the owner repo, but it is only launchable when
-the shared workspace registry marks the profile `active`. While the profile is
-`build-admitted`, `up` and `access` continue to fail closed.
+The runtime is implemented in the owner repo and is launchable only while the
+shared workspace registry marks the profile `active`.
 
 ## Runtime Boundary
 
@@ -75,8 +74,7 @@ Current lifecycle behavior:
 
 ## Smoke Scope
 
-Build-admitted smoke is static and read-only. Active smoke is also read-only
-against the persistent runtime. It proves:
+Active smoke is read-only against the persistent runtime. It proves:
 
 - dev-integration build admission
 - API readiness contract
@@ -104,9 +102,9 @@ The governed `stage` handoff is not ready until it proves:
 These checks must mirror `stage_handoff.required_checks` in `profile.yaml` and
 the workspace registry entry.
 
-## Admission Gates
+## Admission Evidence
 
-Before this profile can become `active`:
+This profile is active only because the following gates have evidence:
 
 1. The owner repo must implement the API/service runtime and read-only smoke
    without replacing scanners, storage, observability, or model gateways.
@@ -114,7 +112,7 @@ Before this profile can become `active`:
    persistence behavior, ports, and suspend or reset behavior.
 3. `security-architecture` must keep custody and trust-boundary review evidence
    current for the implemented runtime.
-4. `workspace-governance` must register the profile as `active`.
+4. `workspace-governance` registered the profile as `active`.
 
 Dev-integration is local evidence only. It is not governed stage or prod
 deployment evidence.
