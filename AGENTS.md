@@ -13,7 +13,7 @@ Read `README.md` first.
 - operator receipts, redaction reports, manifests, artifact digests, and local
   ledger behavior
 - later API, worker, storage adapter, and downstream adapter implementation
-  after the runtime lane is admitted
+  after the runtime lane is build-admitted
 
 ## What This Repo Does Not Own
 
@@ -32,18 +32,21 @@ Read `README.md` first.
   mode.
 - Do not introduce API, worker, database-backed storage, dashboard, broker
   adapter, or cross-repo runtime behavior until the
-  `context-governance-gateway` `dev-integration` profile is active or the
-  workspace records an approved runtime-lane waiver.
-- The current profile is proposed only. Its `up` and `access` commands must
-  fail closed until workspace, platform, and security admission promote it to
-  active.
+  `context-governance-gateway` `dev-integration` profile is `build-admitted`
+  or the workspace records an approved runtime-lane waiver.
+- `build-admitted` authorizes bounded service implementation only. Its `up`,
+  `access`, and shared-runner smoke paths must fail closed until workspace,
+  platform, and security activation promote it to `active`.
 - Preserve raw artifacts locally or in the approved artifact backend, but deny
   raw projection into model-safe packets by default.
 - Keep security architecture binding references current in `README.md` and
   this file. Required refs are the security review checklist, the current dated
-  CGG review, the AI security standard, and the AI and agentic domain:
+  CGG reviews, the service-mode requirements, the AI security standard, and
+  the AI and agentic domain:
   - https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/security-review-checklist.md
   - https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-05-05-context-governance-gateway-phase-1-local-custody.md
+  - https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-05-05-context-governance-gateway-service-mode-admission-gates.md
+  - https://github.com/mfshaf7/security-architecture/blob/main/docs/architecture/components/context-governance-gateway/service-mode-security-requirements.md
   - https://github.com/mfshaf7/security-architecture/blob/main/docs/standards/ai-security-and-governance.md
   - https://github.com/mfshaf7/security-architecture/blob/main/docs/architecture/domains/ai-and-agentic.md
 - Prefer deterministic detection first: command metadata, file extension,
@@ -71,4 +74,4 @@ Treat these as high-risk review findings:
 - a custom LLM gateway, scanner, observability backend, or object store is
   implemented instead of using governed integrations
 - API, worker, storage, dashboard, or broker-adapter work lands without a
-  runtime-lane decision and `dev-integration` admission path
+  runtime-lane decision and `dev-integration` build-admission path

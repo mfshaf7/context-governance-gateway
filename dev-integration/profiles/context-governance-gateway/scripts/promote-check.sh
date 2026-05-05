@@ -13,14 +13,15 @@ Session manifest:
 Generic promotion report:
 - ${PROMOTION_REPORT}
 
-This profile is proposed and cannot promote to stage yet.
+This profile is build-admitted for bounded service implementation and cannot
+promote to stage yet.
 
 Before governed stage rehearsal:
 
-1. Land the active dev-integration admission record in \`workspace-governance\`.
-2. Land platform runtime/profile wiring in \`platform-engineering\`.
-3. Land security custody and trust-boundary review evidence in \`security-architecture\`.
-4. Land CGG API/service runtime and read-only smoke in \`context-governance-gateway\`.
+1. Land CGG API/service runtime and read-only smoke in \`context-governance-gateway\`.
+2. Land platform activation acceptance for the concrete runtime commands in \`platform-engineering\`.
+3. Keep security custody and trust-boundary review evidence current in \`security-architecture\`.
+4. Register the active dev-integration admission record in \`workspace-governance\`.
 5. Prove the profile-owned checks:
 $(stage_handoff_required_checks_markdown)
 

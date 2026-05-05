@@ -1,19 +1,21 @@
 # Context Governance Gateway Dev-Integration Profile
 
-This is the proposed `dev-integration` profile for Context Governance Gateway
-service-mode admission.
+This is the build-admitted `dev-integration` profile for Context Governance
+Gateway service-mode implementation.
 
 Lifecycle:
 
-- `proposed`
+- `build-admitted`
 - not self-serve launchable
-- runtime creation is denied until workspace, platform, and security admission
+- bounded service implementation is authorized by workspace, platform, and
+  security gates
+- runtime creation is denied until workspace, platform, and security activation
   promote the profile to `active`
 
 The profile exists so API, worker, persistent storage, dashboard, broker
 adapter, or cross-repo runtime work cannot start from chat memory or local
-convenience. It records the intended runtime lane first, while Phase 1 remains
-local CLI only.
+convenience. `build-admitted` authorizes the bounded owner-repo implementation
+front; it does not make the runtime launchable.
 
 ## What It Will Run
 
@@ -26,7 +28,7 @@ When admitted, the profile is expected to run:
 - read-only smoke that proves admission health without projecting raw
   operational context
 
-No service-mode runtime is created by this proposed profile today.
+No service-mode runtime is created by this build-admitted profile today.
 
 ## Runtime Boundary
 
@@ -42,8 +44,8 @@ companion profile instead of writing test traffic into the persistent lane.
 
 ## Operator Actions
 
-Use the shared platform runner only after the workspace registry marks the
-profile `active`:
+Use launch and access actions from the shared platform runner only after the
+workspace registry marks the profile `active`:
 
 - `make devint-up PROFILE=context-governance-gateway`
 - `make devint-status PROFILE=context-governance-gateway`
@@ -53,20 +55,21 @@ profile `active`:
 - `make devint-reset PROFILE=context-governance-gateway`
 - `make devint-promote-check PROFILE=context-governance-gateway`
 
-Current proposed-profile behavior:
+Current build-admitted behavior:
 
 - `status` reports the recorded runtime shape.
-- `smoke` performs static read-only profile checks only.
+- direct script `smoke` performs static read-only profile checks only; the
+  shared runner still blocks smoke until the profile is active.
 - `promote-check` explains the gates required before stage handoff.
-- `up` and `access` fail closed because the runtime is not admitted yet.
+- `up` and `access` fail closed because the runtime is not active yet.
 - `down` and `reset` operate only on local profile state, not Kubernetes
   runtime objects.
 
 ## Smoke Scope
 
-The proposed-profile smoke is static and read-only. It proves:
+The build-admitted-profile smoke is static and read-only. It proves:
 
-- dev-integration profile admission
+- dev-integration build admission
 - API readiness contract
 - artifact custody model
 - redaction policy gate
@@ -80,7 +83,7 @@ model, mutate platform state, or project raw artifacts into model-safe packets.
 
 The governed `stage` handoff is not ready until it proves:
 
-- `dev-integration profile admission`
+- `active dev-integration profile admission`
 - `API readiness contract`
 - `artifact custody model`
 - `redaction policy gate`
@@ -94,13 +97,13 @@ the workspace registry entry.
 
 Before this profile can become `active`:
 
-1. `workspace-governance` must register the profile as active.
-2. `platform-engineering` must accept the runtime shape, persistence model, and
-   shared runner wiring.
-3. `security-architecture` must publish custody and trust-boundary review
-   evidence.
-4. The owner repo must implement the API/service runtime and read-only smoke
+1. The owner repo must implement the API/service runtime and read-only smoke
    without replacing scanners, storage, observability, or model gateways.
+2. `platform-engineering` must accept the concrete runtime commands,
+   persistence behavior, ports, and suspend or reset behavior.
+3. `security-architecture` must keep custody and trust-boundary review evidence
+   current for the implemented runtime.
+4. `workspace-governance` must register the profile as `active`.
 
 Dev-integration is local evidence only. It is not governed stage or prod
 deployment evidence.

@@ -1,6 +1,6 @@
 schema_version: 1
 profile_id: context-governance-gateway
-summary: Proposed local-k3s dev-integration lane for Context Governance Gateway service-mode admission.
+summary: Build-admitted local-k3s dev-integration lane for Context Governance Gateway service-mode implementation.
 runtime:
   platform: local-k3s
   state_model: persistent
@@ -42,7 +42,7 @@ stage_handoff:
   owner_repo: platform-engineering
   governed_surface: context-governance-gateway-stage
   required_checks:
-    - dev-integration profile admission
+    - active dev-integration profile admission
     - API readiness contract
     - artifact custody model
     - redaction policy gate
