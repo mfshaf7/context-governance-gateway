@@ -1,0 +1,50 @@
+schema_version: 1
+profile_id: context-governance-gateway
+summary: Proposed local-k3s dev-integration lane for Context Governance Gateway service-mode admission.
+runtime:
+  platform: local-k3s
+  state_model: persistent
+  namespace_pattern: devint-{profile}-{operator}
+  state_root_template: .dev-integration/{profile}/{operator}
+  components:
+    - context-governance-gateway-api
+    - context-governance-gateway-worker
+    - context-governance-gateway-postgresql
+    - context-governance-gateway-minio
+testing:
+  smoke:
+    mutation_mode: read-only
+source_repos:
+  - repo: context-governance-gateway
+    purpose: Context admission implementation, local CLI foundation, future service API, workers, packet projection, receipts, and ledger behavior.
+  - repo: workspace-governance
+    purpose: Workspace contracts, profile admission, owner boundaries, and context admission standards.
+  - repo: platform-engineering
+    purpose: Shared local-k3s dev-integration runner, future platform runtime manifests, storage dependencies, and stage handoff owner.
+  - repo: security-architecture
+    purpose: Sensitive-context custody expectations, trust-boundary review, retention posture, and security acceptance evidence.
+commands:
+  up: dev-integration/profiles/context-governance-gateway/scripts/up.sh
+  status: dev-integration/profiles/context-governance-gateway/scripts/status.sh
+  access: dev-integration/profiles/context-governance-gateway/scripts/access.sh
+  smoke: dev-integration/profiles/context-governance-gateway/scripts/smoke.sh
+  down: dev-integration/profiles/context-governance-gateway/scripts/down.sh
+  reset: dev-integration/profiles/context-governance-gateway/scripts/reset.sh
+  promote_check: dev-integration/profiles/context-governance-gateway/scripts/promote-check.sh
+session:
+  required_artifacts:
+    - cgg-session.yaml
+    - profile-status.txt
+    - smoke-summary.txt
+    - profile-promotion-notes.md
+    - promotion-report.yaml
+stage_handoff:
+  owner_repo: platform-engineering
+  governed_surface: context-governance-gateway-stage
+  required_checks:
+    - dev-integration profile admission
+    - API readiness contract
+    - artifact custody model
+    - redaction policy gate
+    - packet receipt compatibility
+    - security custody review

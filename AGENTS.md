@@ -30,8 +30,12 @@ Read `README.md` first.
 - Keep Phase 1 local-only unless the ART plan explicitly activates service
   mode.
 - Do not introduce API, worker, database-backed storage, dashboard, broker
-  adapter, or cross-repo runtime behavior until a `dev-integration` profile is
-  registered or the workspace records an approved runtime-lane waiver.
+  adapter, or cross-repo runtime behavior until the
+  `context-governance-gateway` `dev-integration` profile is active or the
+  workspace records an approved runtime-lane waiver.
+- The current profile is proposed only. Its `up` and `access` commands must
+  fail closed until workspace, platform, and security admission promote it to
+  active.
 - Preserve raw artifacts locally or in the approved artifact backend, but deny
   raw projection into model-safe packets by default.
 - Prefer deterministic detection first: command metadata, file extension,

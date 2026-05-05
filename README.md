@@ -70,12 +70,32 @@ The current accepted ART scope is Phase 1 local foundation:
 Runtime-lane decision:
 
 - Phase 1 is `local-only`.
-- A `dev-integration` profile is required before this repo adds API service,
+- The proposed `context-governance-gateway` `dev-integration` profile records
+  the service-mode runtime shape, but is not self-serve launchable yet.
+- The proposed profile must become active before this repo adds API service,
   worker, database-backed storage, operator workflow, dashboard, broker
   adapter, or cross-repo runtime behavior.
-- A proposed profile is not treated as self-serve runnable until
-  `workspace-governance`, `platform-engineering`, and `security-architecture`
-  evidence admit it.
+- Profile activation requires `workspace-governance`, `platform-engineering`,
+  and `security-architecture` evidence.
+
+## Dev-Integration Profile
+
+The proposed profile lives at:
+
+- `dev-integration/profiles/context-governance-gateway/profile.yaml`
+- `dev-integration/profiles/context-governance-gateway/README.md`
+
+Current command behavior:
+
+- `status` reports the proposed runtime shape.
+- `smoke` performs static read-only profile checks only.
+- `promote-check` lists the gates required before governed stage rehearsal.
+- `up` and `access` fail closed because service mode is not admitted yet.
+- `down` and `reset` touch only local profile state.
+
+Do not interpret this proposed profile as an active local-k3s runtime. It is an
+admission contract and operator instruction surface for the next service-mode
+front.
 
 ## Safety Model
 
