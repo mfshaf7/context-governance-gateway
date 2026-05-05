@@ -25,4 +25,4 @@ storage = [
 cgg = "cgg_cli.cli:main"
 
 [tool.setuptools.packages.find]
-where = ["apps/api/src", "apps/cli/src", "packages/context_core/src", "packages/context_policy/src", "packages/context_storage/src"]
+where = ["apps/api/src", "apps/cli/src", "packages/context_adapters/src", "packages/context_core/src", "packages/context_policy/src", "packages/context_storage/src"]
