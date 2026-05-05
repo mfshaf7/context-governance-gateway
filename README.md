@@ -107,16 +107,20 @@ The build-admitted profile lives at:
 
 Current command behavior:
 
-- `status` reports the build-admitted runtime shape.
-- direct script `smoke` performs static read-only profile checks only;
-  shared-runner smoke remains denied until the profile is active.
+- `status` reports the build-admitted or active runtime shape.
+- `up` creates the local-k3s namespace, PVCs, PostgreSQL, MinIO, API, worker,
+  and API service only after the workspace registry marks the profile active.
+- `access` port-forwards the API to `http://localhost:18280` only when active.
+- `smoke` is read-only. Build-admitted smoke stays static; active smoke reads
+  health, readiness, packet, receipt, manifest, dashboard, metrics, and trace
+  surfaces from seeded safe devint context.
+- `down` scales active deployments to zero while preserving persistent volumes.
+- `reset` removes the active namespace and local state.
 - `promote-check` lists the gates required before governed stage rehearsal.
-- `up` and `access` fail closed because service mode is not active yet.
-- `down` and `reset` touch only local profile state.
 
-Do not interpret this build-admitted profile as an active local-k3s runtime. It
-is an implementation authorization and operator instruction surface for the
-next service-mode front.
+Do not interpret the build-admitted profile as an active local-k3s runtime.
+It is an implementation authorization. Runtime launch remains denied until the
+workspace profile lifecycle is promoted to `active` by governed evidence.
 
 ## Service-Mode Source Contract
 

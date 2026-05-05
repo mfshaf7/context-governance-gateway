@@ -17,18 +17,22 @@ adapter, or cross-repo runtime work cannot start from chat memory or local
 convenience. `build-admitted` authorizes the bounded owner-repo implementation
 front; it does not make the runtime launchable.
 
-## What It Will Run
+## What It Runs When Active
 
 When admitted, the profile is expected to run:
 
 - a Context Governance Gateway API service
-- a processing worker
-- PostgreSQL metadata/search storage
-- MinIO/S3-compatible artifact custody
+- a processing worker heartbeat
+- PostgreSQL as the admitted metadata/search dependency
+- MinIO/S3-compatible artifact custody dependency
+- PVC-backed CGG state for packet, receipt, manifest, redaction-report,
+  raw-artifact, and ledger custody
 - read-only smoke that proves admission health without projecting raw
   operational context
 
-No service-mode runtime is created by this build-admitted profile today.
+The runtime is implemented in the owner repo, but it is only launchable when
+the shared workspace registry marks the profile `active`. While the profile is
+`build-admitted`, `up` and `access` continue to fail closed.
 
 ## Runtime Boundary
 
@@ -55,19 +59,24 @@ workspace registry marks the profile `active`:
 - `make devint-reset PROFILE=context-governance-gateway`
 - `make devint-promote-check PROFILE=context-governance-gateway`
 
-Current build-admitted behavior:
+Current lifecycle behavior:
 
 - `status` reports the recorded runtime shape.
-- direct script `smoke` performs static read-only profile checks only; the
-  shared runner still blocks smoke until the profile is active.
+- `up` creates the namespace, local secrets, PVCs, PostgreSQL, MinIO, API,
+  worker, and API service only when the lifecycle is `active`.
+- `access` port-forwards the API to `http://localhost:18280`.
+- `smoke` is read-only. In `active`, it reads health, readiness, packet,
+  receipt, manifest, dashboard, metrics, and trace surfaces from seeded safe
+  devint context without writing new test traffic.
+- `down` scales active runtime deployments to zero and preserves PVCs and
+  local secrets.
+- `reset` removes the active namespace and local state.
 - `promote-check` explains the gates required before stage handoff.
-- `up` and `access` fail closed because the runtime is not active yet.
-- `down` and `reset` operate only on local profile state, not Kubernetes
-  runtime objects.
 
 ## Smoke Scope
 
-The build-admitted-profile smoke is static and read-only. It proves:
+Build-admitted smoke is static and read-only. Active smoke is also read-only
+against the persistent runtime. It proves:
 
 - dev-integration build admission
 - API readiness contract
@@ -75,9 +84,11 @@ The build-admitted-profile smoke is static and read-only. It proves:
 - redaction policy gate
 - packet receipt compatibility
 - security custody review
+- raw projection remains denied in the model-safe packet
+- dashboard, metrics, and trace surfaces expose safe metadata only
 
-It does not start Kubernetes workloads, create persistent volumes, call an AI
-model, mutate platform state, or project raw artifacts into model-safe packets.
+It does not call an AI model, mutate platform state, or project raw artifacts
+into model-safe packets.
 
 ## Stage Handoff Checks
 
@@ -114,3 +125,4 @@ deployment evidence.
 - `workspace-governance/contracts/developer-integration-profiles.yaml`
 - `workspace-governance/contracts/components.yaml`
 - `docs/operating-model/local-cli.md`
+- `docs/operating-model/dev-integration-service.md`
