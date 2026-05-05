@@ -4,6 +4,7 @@ set -euo pipefail
 readonly PROFILE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly OWNER_REPO_ROOT="$(cd "${PROFILE_ROOT}/../../.." && pwd)"
 readonly PROFILE_ID="${DEVINT_PROFILE_ID:-context-governance-gateway}"
+readonly PROFILE_LIFECYCLE="${DEVINT_PROFILE_LIFECYCLE:-build-admitted}"
 readonly OPERATOR="${DEVINT_OPERATOR:-${USER:-operator}}"
 readonly NAMESPACE="${DEVINT_NAMESPACE:-devint-${PROFILE_ID}-${OPERATOR}}"
 readonly STATE_ROOT="${DEVINT_STATE_ROOT:-${OWNER_REPO_ROOT}/.dev-integration/${PROFILE_ID}/${OPERATOR}}"
@@ -21,18 +22,18 @@ write_status_file() {
   ensure_state_dirs
   cat >"${STATUS_FILE}" <<EOF
 profile: ${PROFILE_ID}
-lifecycle: proposed
+lifecycle: ${PROFILE_LIFECYCLE}
 namespace: ${NAMESPACE}
 operator: ${OPERATOR}
 state root: ${STATE_ROOT}
-runtime: not-admitted
+runtime: build-admitted-not-active
 launchable: false
 EOF
 }
 
 stage_handoff_required_checks_markdown() {
   cat <<'EOF'
-   - `dev-integration profile admission`
+   - `active dev-integration profile admission`
    - `API readiness contract`
    - `artifact custody model`
    - `redaction policy gate`
@@ -49,6 +50,6 @@ print_status() {
 fail_not_active() {
   print_status
   echo
-  echo "refused: ${PROFILE_ID} is proposed, not active; service-mode runtime launch is intentionally blocked." >&2
+  echo "refused: ${PROFILE_ID} is ${PROFILE_LIFECYCLE}, not active; service-mode runtime launch is intentionally blocked." >&2
   exit 2
 }

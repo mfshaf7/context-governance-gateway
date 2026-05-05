@@ -32,7 +32,7 @@ class DevIntegrationProfileTests(unittest.TestCase):
             mode = script_path.stat().st_mode
             self.assertTrue(mode & stat.S_IXUSR, script_name)
 
-    def test_proposed_profile_status_and_smoke_are_read_only(self) -> None:
+    def test_build_admitted_profile_status_and_smoke_are_read_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             env = os.environ.copy()
             env.update(
@@ -49,7 +49,7 @@ class DevIntegrationProfileTests(unittest.TestCase):
                 text=True,
                 capture_output=True,
             )
-            self.assertIn("lifecycle: proposed", status.stdout)
+            self.assertIn("lifecycle: build-admitted", status.stdout)
             self.assertIn("launchable: false", status.stdout)
 
             smoke = subprocess.run(
@@ -62,7 +62,7 @@ class DevIntegrationProfileTests(unittest.TestCase):
             )
             self.assertIn("No Kubernetes workload was started", smoke.stdout)
 
-    def test_proposed_profile_up_fails_closed(self) -> None:
+    def test_build_admitted_profile_up_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             env = os.environ.copy()
             env.update(

@@ -30,7 +30,7 @@ raw context
 - Context manifests, redaction reports, model-safe packets, operator receipts,
   artifact digests, and audit-ledger events.
 - Later API, worker, storage-adapter, and downstream adapter implementation
-  once the runtime lane is admitted.
+  once the runtime lane is build-admitted.
 
 ## What This Repo Does Not Own
 
@@ -66,6 +66,10 @@ active workspace admission depends on the security architecture binding:
   [docs/reviews/security-review-checklist.md](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/security-review-checklist.md)
 - Current dated security review:
   [docs/reviews/components/2026-05-05-context-governance-gateway-phase-1-local-custody.md](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-05-05-context-governance-gateway-phase-1-local-custody.md)
+- Service-mode security delta:
+  [docs/reviews/components/2026-05-05-context-governance-gateway-service-mode-admission-gates.md](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-05-05-context-governance-gateway-service-mode-admission-gates.md)
+- Service-mode security requirements:
+  [docs/architecture/components/context-governance-gateway/service-mode-security-requirements.md](https://github.com/mfshaf7/security-architecture/blob/main/docs/architecture/components/context-governance-gateway/service-mode-security-requirements.md)
 - AI security standard:
   [docs/standards/ai-security-and-governance.md](https://github.com/mfshaf7/security-architecture/blob/main/docs/standards/ai-security-and-governance.md)
 - AI and agentic domain:
@@ -85,32 +89,34 @@ The current accepted ART scope is Phase 1 local foundation:
 Runtime-lane decision:
 
 - Phase 1 is `local-only`.
-- The proposed `context-governance-gateway` `dev-integration` profile records
-  the service-mode runtime shape, but is not self-serve launchable yet.
-- The proposed profile must become active before this repo adds API service,
-  worker, database-backed storage, operator workflow, dashboard, broker
-  adapter, or cross-repo runtime behavior.
-- Profile activation requires `workspace-governance`, `platform-engineering`,
-  and `security-architecture` evidence.
+- The `context-governance-gateway` `dev-integration` profile is
+  `build-admitted`, which authorizes bounded service implementation after
+  platform and security gates.
+- `build-admitted` is not self-serve launchable. `up`, `access`, and
+  shared-runner smoke remain denied until the profile becomes `active`.
+- Profile activation still requires runnable owner commands, read-only smoke,
+  `platform-engineering` activation evidence, and current
+  `security-architecture` evidence.
 
 ## Dev-Integration Profile
 
-The proposed profile lives at:
+The build-admitted profile lives at:
 
 - `dev-integration/profiles/context-governance-gateway/profile.yaml`
 - `dev-integration/profiles/context-governance-gateway/README.md`
 
 Current command behavior:
 
-- `status` reports the proposed runtime shape.
-- `smoke` performs static read-only profile checks only.
+- `status` reports the build-admitted runtime shape.
+- direct script `smoke` performs static read-only profile checks only;
+  shared-runner smoke remains denied until the profile is active.
 - `promote-check` lists the gates required before governed stage rehearsal.
-- `up` and `access` fail closed because service mode is not admitted yet.
+- `up` and `access` fail closed because service mode is not active yet.
 - `down` and `reset` touch only local profile state.
 
-Do not interpret this proposed profile as an active local-k3s runtime. It is an
-admission contract and operator instruction surface for the next service-mode
-front.
+Do not interpret this build-admitted profile as an active local-k3s runtime. It
+is an implementation authorization and operator instruction surface for the
+next service-mode front.
 
 ## Safety Model
 
