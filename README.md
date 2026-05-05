@@ -118,6 +118,18 @@ Do not interpret this build-admitted profile as an active local-k3s runtime. It
 is an implementation authorization and operator instruction surface for the
 next service-mode front.
 
+## Service-Mode Source Contract
+
+The current service-mode foundation adds source contracts only:
+
+- `apps/api/src/cgg_api` exposes health, readiness, text admission, packet,
+  receipt, and manifest lookup surfaces.
+- Mutating admission is denied unless `CGG_RUNTIME_PROFILE_STATE=active`.
+- `packages/context_storage` provides local filesystem custody plus explicit
+  PostgreSQL/pgvector and MinIO/S3 integration seams.
+- The API reuses `ContextPipeline`; it does not create a second redaction,
+  projection, packet, receipt, or ledger path.
+
 ## Safety Model
 
 Default posture is deny raw model projection. If detection is uncertain or

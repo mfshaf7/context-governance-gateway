@@ -97,6 +97,29 @@ class ContextPipeline:
             budget_tokens=budget_tokens,
         )
 
+    def project_text(
+        self,
+        text: str,
+        *,
+        source_label: str,
+        profile_name: str,
+        budget_tokens: int,
+        source_type: str = "api-text",
+    ) -> dict[str, object]:
+        self.init_workspace()
+        artifact_id = new_artifact_id("artifact")
+        captured_at = utc_now_iso()
+        raw_path = cgg_workspace(self.root) / "artifacts" / "raw" / f"{artifact_id}.txt"
+        raw_path.write_text(text, encoding="utf-8")
+        return self._project_raw(
+            artifact_id=artifact_id,
+            raw_path=raw_path,
+            captured_at=captured_at,
+            source={"type": source_type, "label": source_label},
+            profile_name=profile_name,
+            budget_tokens=budget_tokens,
+        )
+
     def _project_raw(
         self,
         *,
@@ -114,7 +137,7 @@ class ContextPipeline:
         classification = classify_text(
             normalized,
             source_type=str(source["type"]),
-            source_label=str(source.get("command") or source.get("path") or raw_path),
+            source_label=str(source.get("command") or source.get("path") or source.get("label") or raw_path),
             exit_code=exit_code,
         )
         redacted_text, redaction_report = redact_text(normalized)
