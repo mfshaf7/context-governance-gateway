@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.context-governance-gateway.local/observability-event.schema.json",
+  "title": "CGG Observability Event",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_digest",
+    "captured_at",
+    "source_type",
+    "policy_profile",
+    "raw_projection",
+    "redaction_count",
+    "budget",
+    "failure_detected",
+    "artifact_links"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "artifact_digest": {"type": "string"},
+    "captured_at": {"type": "string"},
+    "source_type": {"type": "string"},
+    "policy_profile": {"enum": ["casual", "developer", "enterprise"]},
+    "raw_projection": {"type": "string"},
+    "redaction_count": {"type": "integer", "minimum": 0},
+    "detector_sources": {"type": "array", "items": {"type": "string"}},
+    "unavailable_integrations": {"type": "array", "items": {"type": "string"}},
+    "budget": {
+      "type": "object",
+      "required": ["estimated_tokens", "budget_tokens", "truncated"],
+      "properties": {
+        "estimated_tokens": {"type": "integer", "minimum": 0},
+        "budget_tokens": {"type": "integer", "minimum": 0},
+        "truncated": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "failure_detected": {"type": "boolean"},
+    "policy_decision_count": {"type": "integer", "minimum": 0},
+    "artifact_links": {
+      "type": "object",
+      "required": [
+        "packet_available",
+        "receipt_available",
+        "manifest_available",
+        "raw_artifact_location_visible"
+      ],
+      "properties": {
+        "packet_available": {"type": "boolean"},
+        "receipt_available": {"type": "boolean"},
+        "manifest_available": {"type": "boolean"},
+        "raw_artifact_location_visible": {"const": false}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

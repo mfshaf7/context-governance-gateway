@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 try:
-    from fastapi import FastAPI, HTTPException
+    from fastapi import FastAPI, HTTPException, Response
     from pydantic import BaseModel, Field
 except ImportError as exc:  # pragma: no cover - exercised only when running without api extras.
     raise RuntimeError(
@@ -74,6 +74,32 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
             return service.manifest(artifact_id)
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail="manifest not found") from exc
+
+    @app.get("/v1/observability/admissions")
+    def admission_observations() -> dict[str, Any]:
+        return {
+            "schema_version": 1,
+            "observations": service.admission_observations(),
+        }
+
+    @app.get("/v1/observability/metrics")
+    def prometheus_metrics() -> Response:
+        return Response(
+            service.prometheus_metrics(),
+            media_type="text/plain; version=0.0.4; charset=utf-8",
+        )
+
+    @app.get("/v1/observability/traces")
+    def trace_spans() -> dict[str, Any]:
+        return service.trace_spans()
+
+    @app.get("/v1/operator/dashboard")
+    def operator_dashboard() -> dict[str, Any]:
+        return service.operator_dashboard()
+
+    @app.get("/v1/operator/dashboard.txt")
+    def operator_dashboard_text() -> Response:
+        return Response(service.operator_dashboard_text(), media_type="text/plain; charset=utf-8")
 
     return app
 

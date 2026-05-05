@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.context-governance-gateway.local/operator-dashboard.schema.json",
+  "title": "CGG Operator Dashboard Snapshot",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "purpose",
+    "status",
+    "summary",
+    "safety_posture",
+    "recent_admissions"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "purpose": {"const": "operator-safe-context-admission-dashboard"},
+    "status": {"enum": ["empty", "ok", "attention"]},
+    "summary": {
+      "type": "object",
+      "required": [
+        "packet_count",
+        "redaction_count",
+        "budget_truncated_count",
+        "failure_count",
+        "profile_counts",
+        "source_type_counts",
+        "raw_projection_counts",
+        "unavailable_integration_count"
+      ],
+      "properties": {
+        "packet_count": {"type": "integer", "minimum": 0},
+        "redaction_count": {"type": "integer", "minimum": 0},
+        "budget_truncated_count": {"type": "integer", "minimum": 0},
+        "failure_count": {"type": "integer", "minimum": 0},
+        "profile_counts": {"type": "object"},
+        "source_type_counts": {"type": "object"},
+        "raw_projection_counts": {"type": "object"},
+        "unavailable_integration_count": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "safety_posture": {
+      "type": "object",
+      "required": [
+        "raw_context_visible",
+        "packet_excerpt_visible",
+        "raw_artifact_locations_visible",
+        "dashboard_role"
+      ],
+      "properties": {
+        "raw_context_visible": {"const": false},
+        "packet_excerpt_visible": {"const": false},
+        "raw_artifact_locations_visible": {"const": false},
+        "dashboard_role": {"const": "operator_status_not_raw_context_view"}
+      },
+      "additionalProperties": false
+    },
+    "unavailable_integrations": {"type": "array", "items": {"type": "string"}},
+    "recent_admissions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "artifact_digest",
+          "captured_at",
+          "source_type",
+          "policy_profile",
+          "raw_projection",
+          "redaction_count",
+          "budget",
+          "failure_detected"
+        ],
+        "properties": {
+          "artifact_digest": {"type": "string"},
+          "captured_at": {"type": "string"},
+          "source_type": {"type": "string"},
+          "policy_profile": {"enum": ["casual", "developer", "enterprise"]},
+          "raw_projection": {"type": "string"},
+          "redaction_count": {"type": "integer", "minimum": 0},
+          "budget": {"type": "object"},
+          "failure_detected": {"type": "boolean"},
+          "packet_available": {"type": "boolean"},
+          "receipt_available": {"type": "boolean"},
+          "manifest_available": {"type": "boolean"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

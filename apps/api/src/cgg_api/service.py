@@ -4,6 +4,14 @@ from dataclasses import dataclass
 
 from context_core.pipeline import ContextPipeline
 from context_core.profiles import PROFILE_NAMES
+from context_observability import (
+    AdmissionObservation,
+    build_dashboard_snapshot,
+    build_prometheus_metrics,
+    build_trace_spans,
+    render_dashboard_text,
+    render_prometheus,
+)
 
 from .runtime import RuntimeSettings
 
@@ -71,8 +79,58 @@ class ContextGatewayService:
     def manifest(self, artifact_id: str) -> dict[str, object]:
         return self.metadata_store.get_manifest(artifact_id)
 
+    def admission_observations(self) -> list[dict[str, object]]:
+        return [observation.to_dict() for observation in self._admission_observations()]
+
+    def prometheus_metrics(self) -> str:
+        return render_prometheus(build_prometheus_metrics(self._admission_observations()))
+
+    def trace_spans(self) -> dict[str, object]:
+        spans = build_trace_spans(self._admission_observations())
+        return {
+            "schema_version": 1,
+            "purpose": "otel-compatible-context-admission-spans",
+            "otel_exporter": "seam_not_configured",
+            "spans": [span.to_dict() for span in spans],
+        }
+
+    def operator_dashboard(self) -> dict[str, object]:
+        return build_dashboard_snapshot(self._admission_observations())
+
+    def operator_dashboard_text(self) -> str:
+        return render_dashboard_text(self.operator_dashboard())
+
     def _require_mutation_allowed(self) -> None:
         if not self.settings.mutation_allowed:
             raise RuntimeGateError(
                 "CGG service-mode mutation is denied until the dev-integration profile is active."
             )
+
+    def _admission_observations(self) -> list[AdmissionObservation]:
+        if not hasattr(self.metadata_store, "list_artifact_ids"):
+            return []
+
+        observations: list[AdmissionObservation] = []
+        for artifact_id in self.metadata_store.list_artifact_ids():
+            packet = self.metadata_store.get_packet(artifact_id)
+            try:
+                manifest = self.metadata_store.get_manifest(artifact_id)
+            except FileNotFoundError:
+                manifest = None
+            try:
+                receipt = self.metadata_store.get_receipt(artifact_id)
+            except FileNotFoundError:
+                receipt = None
+            try:
+                redaction_report = self.metadata_store.get_redaction_report(artifact_id)
+            except (AttributeError, FileNotFoundError):
+                redaction_report = None
+            observations.append(
+                AdmissionObservation.from_artifacts(
+                    manifest=manifest,
+                    packet=packet,
+                    receipt=receipt,
+                    redaction_report=redaction_report,
+                )
+            )
+        return observations

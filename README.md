@@ -133,6 +133,11 @@ The current service-mode foundation adds source contracts only:
 - `packages/context_adapters` provides downstream packet and receipt adapter
   contracts for WGCF, OOS, AI tools, and operators without mutation, approval,
   model-gateway, or raw-artifact authority.
+- `packages/context_observability` provides Prometheus-compatible metric
+  samples, OpenTelemetry-compatible span payloads, and operator dashboard view
+  models from already governed packet/receipt/manifest metadata.
+- `apps/dashboard` provides the bounded source surface for operator dashboard
+  summaries; it is not yet a live Next.js deployment.
 - The API reuses `ContextPipeline`; it does not create a second redaction,
   projection, packet, receipt, or ledger path.
 
@@ -153,6 +158,8 @@ Enterprise mode must preserve auditability:
 - detector sources and unavailable external scanner integrations
 - adapter envelopes for downstream consumers when packets are projected out of
   CGG
+- observability and dashboard projections that expose only safe metadata, never
+  raw context or raw artifact paths
 - model-safe packet
 - operator receipt
 - ledger event
