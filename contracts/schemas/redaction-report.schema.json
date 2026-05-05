@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.context-governance-gateway.local/redaction-report.schema.json",
+  "title": "Redaction Report",
+  "type": "object",
+  "required": ["schema_version", "artifact_id", "artifact_digest", "report"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "artifact_id": {"type": "string"},
+    "artifact_digest": {"type": "string"},
+    "report": {
+      "type": "object",
+      "required": ["finding_count", "findings"],
+      "properties": {
+        "finding_count": {"type": "integer", "minimum": 0},
+        "findings": {"type": "array", "items": {"type": "object"}}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

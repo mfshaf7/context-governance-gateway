@@ -1,0 +1,7 @@
+{
+  "profile": "developer",
+  "deny_raw_projection_on_findings": true,
+  "include_error_windows": true,
+  "suppress_excerpt_on_findings": false,
+  "default_budget_tokens": 3000
+}

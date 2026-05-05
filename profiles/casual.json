@@ -1,0 +1,7 @@
+{
+  "profile": "casual",
+  "deny_raw_projection_on_findings": true,
+  "include_error_windows": false,
+  "suppress_excerpt_on_findings": false,
+  "default_budget_tokens": 2000
+}

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.context-governance-gateway.local/operator-receipt.schema.json",
+  "title": "Operator Receipt",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_id",
+    "what_was_captured",
+    "what_was_removed_or_redacted",
+    "what_was_included_in_packet",
+    "what_was_denied_or_suppressed",
+    "full_artifact_location",
+    "artifact_digest",
+    "policy_profile_decision"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "artifact_id": {"type": "string"},
+    "what_was_captured": {"type": "object"},
+    "what_was_removed_or_redacted": {"type": "array"},
+    "what_was_included_in_packet": {"type": "object"},
+    "what_was_denied_or_suppressed": {"type": "object"},
+    "full_artifact_location": {"type": "string"},
+    "artifact_digest": {"type": "string"},
+    "policy_profile_decision": {"type": "object"}
+  },
+  "additionalProperties": false
+}

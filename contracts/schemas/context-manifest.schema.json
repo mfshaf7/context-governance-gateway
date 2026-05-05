@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.context-governance-gateway.local/context-manifest.schema.json",
+  "title": "Context Manifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_id",
+    "captured_at",
+    "source",
+    "artifact_digest",
+    "raw_artifact_path",
+    "redacted_artifact_path",
+    "packet_path",
+    "receipt_path",
+    "classification",
+    "profile",
+    "budget"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "artifact_id": {"type": "string"},
+    "captured_at": {"type": "string"},
+    "source": {"type": "object"},
+    "artifact_digest": {"type": "string"},
+    "raw_artifact_path": {"type": "string"},
+    "redacted_artifact_path": {"type": "string"},
+    "packet_path": {"type": "string"},
+    "receipt_path": {"type": "string"},
+    "classification": {"type": "object"},
+    "profile": {"enum": ["casual", "developer", "enterprise"]},
+    "budget": {"type": "object"}
+  },
+  "additionalProperties": true
+}
