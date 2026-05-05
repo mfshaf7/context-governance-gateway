@@ -13,8 +13,8 @@ from .ledger.ledger import append_ledger_event
 from .normalization.normalize import normalize_text
 from .profiles import get_profile
 from .projection.projector import collapse_repeated_lines, error_windows
-from .redaction.detectors import redact_text
 from .workspace import cgg_workspace, ensure_workspace, new_artifact_id, safe_relative, utc_now_iso, write_json
+from context_policy import evaluate_context_admission, scan_sensitive_context
 
 
 class ContextPipeline:
@@ -140,7 +140,7 @@ class ContextPipeline:
             source_label=str(source.get("command") or source.get("path") or source.get("label") or raw_path),
             exit_code=exit_code,
         )
-        redacted_text, redaction_report = redact_text(normalized)
+        redacted_text, redaction_report = scan_sensitive_context(normalized)
         collapsed_text, collapse_events = collapse_repeated_lines(redacted_text)
         digest = sha256_file(raw_path)
 
@@ -165,18 +165,11 @@ class ContextPipeline:
         redacted_path.write_text(collapsed_text, encoding="utf-8")
 
         failure_summary = summarize_failure(classification, exit_code=exit_code)
-        raw_projection_denied = bool(
-            redaction_report["finding_count"] and profile.deny_raw_projection_on_findings
+        policy_evaluation = evaluate_context_admission(
+            profile=profile,
+            redaction_report=redaction_report,
         )
-        admission_decision = {
-            "profile": profile.name,
-            "raw_projection": "denied" if raw_projection_denied else "not_requested",
-            "reason": (
-                "Sensitive or uncertain material detected; raw projection denied by profile."
-                if raw_projection_denied
-                else "No raw projection requested; packet contains budgeted safe context only."
-            ),
-        }
+        admission_decision = policy_evaluation.admission_decision
 
         manifest = {
             "schema_version": 1,
@@ -192,6 +185,11 @@ class ContextPipeline:
             "classification": classification,
             "profile": profile.name,
             "budget": budget_report,
+            "detectors": {
+                "sources": redaction_report.get("detector_sources", []),
+                "unavailable_integrations": redaction_report.get("unavailable_integrations", []),
+            },
+            "policy": policy_evaluation.to_dict(),
         }
         packet = {
             "schema_version": 1,
@@ -208,6 +206,7 @@ class ContextPipeline:
             "policy_profile": profile.name,
             "policy_profile_purpose": profile.purpose,
             "admission_decision": admission_decision,
+            "context_admission": policy_evaluation.to_dict(),
             "artifact_paths": {
                 "raw": safe_relative(raw_path, self.root),
                 "redacted": safe_relative(redacted_path, self.root),

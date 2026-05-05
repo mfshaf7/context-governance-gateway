@@ -1,6 +1,7 @@
 # API App
 
-The API app now provides the bounded service-mode contract for #587/#588.
+The API app provides the bounded service-mode contract for CGG source-backed
+service fronts.
 
 It is intentionally fail-closed by default:
 
@@ -36,5 +37,7 @@ Primary routes:
 - `GET /v1/context/receipts/{artifact_id}`
 - `GET /v1/context/manifests/{artifact_id}`
 
-The API reuses `context_core.pipeline.ContextPipeline`; it does not introduce a
-separate capture/redaction/projection path.
+The API reuses `context_core.pipeline.ContextPipeline`, including the
+`context_policy` admission and detector boundary. It does not introduce a
+separate capture, detector, redaction, policy, projection, packet, receipt, or
+ledger path.
