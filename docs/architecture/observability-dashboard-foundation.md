@@ -36,5 +36,5 @@ correlation. They still hide raw artifact locations and captured content.
 
 The API exposes read-only observability and dashboard routes. Mutating context
 admission still requires `CGG_RUNTIME_PROFILE_STATE=active`. The current
-dev-integration profile is build-admitted, so this foundation is source-ready
-but not a claim of active runtime operation.
+dev-integration profile is active for local service-shape proof only; this is
+not governed stage or production runtime evidence.
