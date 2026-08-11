@@ -20,11 +20,22 @@ Describe the CGG behavior, contract, or documentation change.
 - List local commands and CI-equivalent checks.
 - Include profile, packet, receipt, or ledger evidence when applicable.
 
-## Codex Review
+## Advisory Review
 
-Review for raw operational context leakage, model-safe packet admission,
-redaction denial behavior, authority-boundary drift, and dev-integration
-admission bypass.
+Optional; leave blank when deterministic owner review and validation are sufficient.
+
+- Requested:
+- Provider:
+- Scope and accepted trust model:
+- Finding disposition:
+  - `fix-now`
+  - `separate-work`
+  - `reject-with-reason`
+- Verification pass:
+
+When requested, review for raw operational context leakage, model-safe packet
+admission, redaction denial behavior, authority-boundary drift, and
+dev-integration admission bypass.
 
 ## Review Gates
 
