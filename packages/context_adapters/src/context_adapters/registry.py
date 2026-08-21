@@ -1,13 +1,8 @@
 from __future__ import annotations
 
-from .ai import (
-    CodexStylePacketAdapter,
-    LiteLlmPacketAdapter,
-    OllamaPacketAdapter,
-    OpenClawPacketAdapter,
-    OperatorPacketAdapter,
-)
+from .gateway import GovernedAiGatewayContextAdapter
 from .governance import OosReceiptAdapter, WgcfReceiptAdapter
+from .operator import OperatorPacketAdapter
 
 
 def build_default_adapter_registry() -> dict[str, object]:
@@ -16,11 +11,8 @@ def build_default_adapter_registry() -> dict[str, object]:
             "wgcf": WgcfReceiptAdapter(),
             "oos": OosReceiptAdapter(),
         },
-        "ai_operator": {
-            "litellm": LiteLlmPacketAdapter(),
-            "openclaw": OpenClawPacketAdapter(),
-            "ollama": OllamaPacketAdapter(),
-            "codex_style_agent": CodexStylePacketAdapter(),
+        "context_consumers": {
+            "governed_ai_gateway": GovernedAiGatewayContextAdapter(),
             "operator": OperatorPacketAdapter(),
         },
         "authority": {

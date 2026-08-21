@@ -22,18 +22,16 @@
         "captured_at",
         "policy_profile",
         "raw_projection",
-        "redaction_count",
-        "source"
+        "redaction_count"
       ],
       "properties": {
         "artifact_digest": {"type": "string"},
         "captured_at": {"type": "string"},
         "policy_profile": {"enum": ["casual", "developer", "enterprise"]},
         "raw_projection": {"type": "string"},
-        "redaction_count": {"type": "integer", "minimum": 0},
-        "source": {"type": "object"}
+        "redaction_count": {"type": "integer", "minimum": 0}
       },
-      "additionalProperties": true
+      "additionalProperties": false
     },
     "receipt_reference": {
       "type": "object",
