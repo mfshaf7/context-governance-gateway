@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .authority import ensure_packet_receipt_pair
 from .models import AdapterEnvelope, PacketReference, ReceiptReference
 
 
@@ -10,6 +11,7 @@ class WgcfReceiptAdapter:
     consumer: str = "workspace-governance-control-fabric"
 
     def to_evidence_input(self, packet: dict[str, object], receipt: dict[str, object]) -> dict[str, object]:
+        ensure_packet_receipt_pair(packet, receipt)
         packet_reference = PacketReference.from_packet(packet)
         receipt_reference = ReceiptReference.from_receipt(receipt)
         return AdapterEnvelope(
@@ -30,6 +32,7 @@ class OosReceiptAdapter:
     consumer: str = "operator-orchestration-service"
 
     def to_workflow_context(self, packet: dict[str, object], receipt: dict[str, object]) -> dict[str, object]:
+        ensure_packet_receipt_pair(packet, receipt)
         packet_reference = PacketReference.from_packet(packet)
         receipt_reference = ReceiptReference.from_receipt(receipt)
         return AdapterEnvelope(

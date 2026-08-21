@@ -12,7 +12,6 @@ class PacketReference:
     policy_profile: str
     raw_projection: str
     redaction_count: int
-    source: dict[str, object]
 
     @classmethod
     def from_packet(cls, packet: dict[str, object]) -> "PacketReference":
@@ -24,7 +23,6 @@ class PacketReference:
             policy_profile=str(packet["policy_profile"]),
             raw_projection=str(admission.get("raw_projection")),
             redaction_count=len(list(packet.get("redactions_applied") or [])),
-            source=dict(packet["source"]),
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -34,7 +32,6 @@ class PacketReference:
             "policy_profile": self.policy_profile,
             "raw_projection": self.raw_projection,
             "redaction_count": self.redaction_count,
-            "source": self.source,
         }
 
 

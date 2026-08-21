@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.context-governance-gateway.local/governed-ai-context-handoff.schema.json",
+  "title": "Governed AI Context Handoff",
+  "type": "object",
+  "required": ["packet_ref", "redaction_receipt_ref", "content"],
+  "properties": {
+    "packet_ref": {
+      "type": "string",
+      "pattern": "^/v1/context/packets/[A-Za-z0-9._:-]+$"
+    },
+    "redaction_receipt_ref": {
+      "type": "string",
+      "pattern": "^/v1/context/receipts/[A-Za-z0-9._:-]+$"
+    },
+    "content": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": false
+}

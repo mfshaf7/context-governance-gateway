@@ -140,8 +140,8 @@ The current service-mode foundation adds source contracts only:
   evaluator, detector registry, OPA seam, and Presidio/Gitleaks/TruffleHog
   scanner seams.
 - `packages/context_adapters` provides downstream packet and receipt adapter
-  contracts for WGCF, OOS, AI tools, and operators without mutation, approval,
-  model-gateway, or raw-artifact authority.
+  contracts for WGCF, OOS, the governed AI gateway, and operators without
+  mutation, approval, model-selection, invocation, or raw-artifact authority.
 - `packages/context_observability` provides Prometheus-compatible metric
   samples, OpenTelemetry-compatible span payloads, and operator dashboard view
   models from already governed packet/receipt/manifest metadata.

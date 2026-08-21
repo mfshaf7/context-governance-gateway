@@ -7,8 +7,7 @@ from pathlib import Path
 
 from context_adapters import (
     AdapterPolicyError,
-    CodexStylePacketAdapter,
-    LiteLlmPacketAdapter,
+    GovernedAiGatewayContextAdapter,
     OosReceiptAdapter,
     OperatorPacketAdapter,
     WgcfReceiptAdapter,
@@ -44,36 +43,85 @@ class AdapterFoundationTests(unittest.TestCase):
             self.assertNotIn("full_artifact_location", json.dumps(oos))
             self.assertEqual(wgcf["schema_version"], 1)
 
-    def test_ai_and_operator_adapters_project_safe_context_without_invocation(self) -> None:
+    def test_gateway_and_operator_adapters_project_safe_context_without_invocation(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            packet, _ = _packet_and_receipt(Path(tmp))
-            litellm = LiteLlmPacketAdapter().to_context_payload(packet)
-            codex = CodexStylePacketAdapter().to_context_payload(packet)
+            packet, receipt = _packet_and_receipt(Path(tmp))
+            gateway = GovernedAiGatewayContextAdapter().to_model_safe_packet(packet, receipt)
             operator = OperatorPacketAdapter().to_context_payload(packet)
 
-            self.assertEqual(litellm["payload"]["model_invocation"], "not_performed")
-            self.assertEqual(codex["payload"]["gateway_role"], "not_a_llm_gateway")
-            self.assertIn("<redacted:secret-env-var>", operator["payload"]["messages"][1]["content"])
-            self.assertFalse(litellm["authority"]["may_route_model_traffic"])
-            self.assertNotIn("raw_artifact_path", json.dumps(litellm))
+            self.assertEqual(
+                set(gateway),
+                {"packet_ref", "redaction_receipt_ref", "content"},
+            )
+            self.assertTrue(gateway["packet_ref"].startswith("/v1/context/packets/"))
+            self.assertTrue(
+                gateway["redaction_receipt_ref"].startswith("/v1/context/receipts/")
+            )
+            self.assertIn("<redacted:secret-env-var>", gateway["content"])
+            self.assertIn("<redacted:secret-env-var>", operator["payload"]["content"])
+            self.assertFalse(operator["authority"]["may_route_model_traffic"])
+            self.assertNotIn("artifacts/raw", json.dumps(operator))
 
     def test_adapter_denies_non_model_safe_or_raw_projection_packets(self) -> None:
         with self.assertRaises(AdapterPolicyError):
-            LiteLlmPacketAdapter().to_context_payload({"purpose": "raw log"})
+            GovernedAiGatewayContextAdapter().to_model_safe_packet(
+                {"purpose": "raw log"},
+                {},
+            )
         with tempfile.TemporaryDirectory() as tmp:
-            packet, _ = _packet_and_receipt(Path(tmp))
+            packet, receipt = _packet_and_receipt(Path(tmp))
             packet["admission_decision"]["raw_projection"] = "allowed-raw"
             with self.assertRaises(AdapterPolicyError):
-                CodexStylePacketAdapter().to_context_payload(packet)
+                GovernedAiGatewayContextAdapter().to_model_safe_packet(packet, receipt)
 
-    def test_default_adapter_registry_lists_governance_and_ai_consumers(self) -> None:
+    def test_adapters_reject_packet_and_receipt_identity_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            packet, receipt = _packet_and_receipt(Path(tmp))
+            receipt["artifact_digest"] = f"sha256:{'0' * 64}"
+
+            with self.assertRaisesRegex(AdapterPolicyError, "digests do not match"):
+                GovernedAiGatewayContextAdapter().to_model_safe_packet(packet, receipt)
+            with self.assertRaisesRegex(AdapterPolicyError, "digests do not match"):
+                WgcfReceiptAdapter().to_evidence_input(packet, receipt)
+
+    def test_gateway_rejects_incomplete_or_inconsistent_receipts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            packet, receipt = _packet_and_receipt(Path(tmp))
+            receipt_without_id = dict(receipt)
+            receipt_without_id.pop("artifact_id")
+            with self.assertRaisesRegex(AdapterPolicyError, "artifact_id"):
+                GovernedAiGatewayContextAdapter().to_model_safe_packet(
+                    packet,
+                    receipt_without_id,
+                )
+
+            receipt_with_wrong_profile = dict(receipt)
+            receipt_with_wrong_profile["policy_profile_decision"] = {
+                **dict(receipt["policy_profile_decision"]),
+                "profile": "enterprise",
+            }
+            with self.assertRaisesRegex(AdapterPolicyError, "policy profiles"):
+                GovernedAiGatewayContextAdapter().to_model_safe_packet(
+                    packet,
+                    receipt_with_wrong_profile,
+                )
+
+    def test_adapter_references_do_not_expose_raw_source_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            packet, receipt = _packet_and_receipt(Path(tmp))
+            envelope = OosReceiptAdapter().to_workflow_context(packet, receipt)
+
+            self.assertNotIn("source", envelope["packet_reference"])
+            self.assertNotIn('"source"', json.dumps(envelope))
+
+    def test_default_adapter_registry_lists_governance_and_context_consumers(self) -> None:
         registry = build_default_adapter_registry()
 
         self.assertIn("wgcf", registry["governance"])
         self.assertIn("oos", registry["governance"])
-        self.assertIn("litellm", registry["ai_operator"])
-        self.assertIn("openclaw", registry["ai_operator"])
-        self.assertIn("ollama", registry["ai_operator"])
+        self.assertIn("governed_ai_gateway", registry["context_consumers"])
+        self.assertIn("operator", registry["context_consumers"])
+        self.assertNotIn("ai_operator", registry)
         self.assertEqual(registry["authority"]["mutation_authority"], "none")
 
 
