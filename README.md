@@ -132,7 +132,7 @@ gates.
 The current service-mode foundation adds source contracts only:
 
 - `apps/api/src/cgg_api` exposes health, readiness, text admission, packet,
-  receipt, and manifest lookup surfaces.
+  receipt, manifest lookup, and receipt-bound Work Design projection surfaces.
 - Mutating admission is denied unless `CGG_RUNTIME_PROFILE_STATE=active`.
 - `packages/context_storage` provides local filesystem custody plus explicit
   PostgreSQL/pgvector and MinIO/S3 integration seams.
@@ -149,6 +149,21 @@ The current service-mode foundation adds source contracts only:
   summaries; it is not yet a live Next.js deployment.
 - The API reuses `ContextPipeline`; it does not create a second redaction,
   projection, packet, receipt, or ledger path.
+
+Work Design context projection is an admitted local dev-integration contract:
+
+- OOS is the only default admitted caller, and the route remains fail-closed
+  until Platform supplies the caller shared secret.
+- Requests bind the Delivery package, source revision, operator, workflow
+  session, execution, task contract, output schema, and logical model profile.
+- Identical retries replay the original projection; conflicting reuse of an
+  idempotency key is denied.
+- The projection returns only model-safe content and digest-bound packet,
+  redaction-receipt, and projection-receipt references.
+- CGG does not invoke a model, approve advice, or mutate Delivery.
+
+The primary integration procedure is
+[`docs/operating-model/work-design-projection.md`](docs/operating-model/work-design-projection.md).
 
 ## Safety Model
 

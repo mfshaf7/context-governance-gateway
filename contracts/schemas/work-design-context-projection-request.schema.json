@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.context-governance-gateway.local/work-design-context-projection-request.schema.json",
+  "title": "Work Design Context Projection Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "correlation_id",
+    "idempotency_key",
+    "workflow_session_id",
+    "execution_id",
+    "delivery_id",
+    "package_ref",
+    "source_ref",
+    "source_revision",
+    "operator",
+    "task",
+    "requested_at",
+    "context",
+    "context_digest",
+    "budget_tokens"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "request_id": {"$ref": "#/$defs/stableId"},
+    "correlation_id": {"$ref": "#/$defs/stableId"},
+    "idempotency_key": {"$ref": "#/$defs/stableId"},
+    "workflow_session_id": {"$ref": "#/$defs/stableId"},
+    "execution_id": {"$ref": "#/$defs/stableId"},
+    "delivery_id": {"type": "string", "pattern": "^delivery-[1-9][0-9]*$"},
+    "package_ref": {"type": "string", "minLength": 1, "maxLength": 512},
+    "source_ref": {"type": "string", "minLength": 1, "maxLength": 512},
+    "source_revision": {"type": "string", "minLength": 1, "maxLength": 256},
+    "operator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {"id": {"$ref": "#/$defs/stableId"}}
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "contract_ref",
+        "version",
+        "output_schema_ref",
+        "model_profile_id"
+      ],
+      "properties": {
+        "kind": {"enum": ["context_advice", "tree_advice"]},
+        "contract_ref": {"const": "oos.delivery-work-design.v1"},
+        "version": {"const": "1.0"},
+        "output_schema_ref": {"type": "string", "minLength": 1, "maxLength": 512},
+        "model_profile_id": {"const": "delivery-work-design-advisor-v1"}
+      }
+    },
+    "requested_at": {"type": "string", "format": "date-time", "maxLength": 64},
+    "context": {"type": "string", "minLength": 1, "maxLength": 262144},
+    "context_digest": {"$ref": "#/$defs/sha256"},
+    "budget_tokens": {"type": "integer", "minimum": 1, "maximum": 8000}
+  },
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

@@ -14,6 +14,7 @@ from context_observability import (
 )
 
 from .runtime import RuntimeSettings
+from .work_design import WorkDesignContextProjector, WorkDesignProjectionRequest
 
 
 class RuntimeGateError(PermissionError):
@@ -28,6 +29,18 @@ class ContextGatewayService:
         self.pipeline = ContextPipeline(self.settings.root)
         self.metadata_store = self.settings.storage.metadata_store(self.settings.root)
         self.artifact_custody = self.settings.storage.artifact_custody(self.settings.root)
+        self.work_design_projector = WorkDesignContextProjector(
+            store=self.settings.storage.work_design_projection_store(self.settings.root),
+            project_text=self.project_text,
+            load_packet=self.packet,
+            load_receipt=self.receipt,
+            allowed_callers=self.settings.work_design_allowed_callers,
+            caller_shared_secret=self.settings.work_design_caller_shared_secret,
+            max_context_bytes=self.settings.work_design_max_context_bytes,
+            max_budget_tokens=self.settings.work_design_max_budget_tokens,
+            max_request_age_seconds=self.settings.work_design_max_request_age_seconds,
+            pending_timeout_seconds=self.settings.work_design_pending_timeout_seconds,
+        )
 
     def health(self) -> dict[str, object]:
         return {
@@ -36,6 +49,13 @@ class ContextGatewayService:
             "runtime_profile_state": self.settings.runtime_profile_state,
             "metadata_backend": self.metadata_store.backend,
             "artifact_backend": self.artifact_custody.backend,
+            "capabilities": {
+                "work_design_projection": {
+                    "auth_configured": self.settings.work_design_projection_auth_configured,
+                    "model_invocation": False,
+                    "delivery_mutation": False,
+                }
+            },
         }
 
     def readiness(self) -> dict[str, object]:
@@ -47,6 +67,14 @@ class ContextGatewayService:
                 if self.settings.mutation_allowed
                 else "profile is build-admitted for implementation but not active for runtime mutation"
             ),
+            "capabilities": {
+                "work_design_projection": {
+                    "ready": bool(
+                        self.settings.mutation_allowed
+                        and self.settings.work_design_projection_auth_configured
+                    )
+                }
+            },
         }
 
     def project_text(
@@ -56,6 +84,7 @@ class ContextGatewayService:
         source_label: str,
         profile_name: str | None = None,
         budget_tokens: int | None = None,
+        source_type: str = "api-text",
     ) -> dict[str, object]:
         self._require_mutation_allowed()
         profile = profile_name or self.settings.default_profile
@@ -66,6 +95,7 @@ class ContextGatewayService:
             source_label=source_label,
             profile_name=profile,
             budget_tokens=budget_tokens or self.settings.default_budget_tokens,
+            source_type=source_type,
         )
         result["storage_record"] = self.metadata_store.record_projection(result)
         return result
@@ -78,6 +108,33 @@ class ContextGatewayService:
 
     def manifest(self, artifact_id: str) -> dict[str, object]:
         return self.metadata_store.get_manifest(artifact_id)
+
+    def project_work_design(
+        self,
+        request: WorkDesignProjectionRequest,
+        *,
+        caller_id: str,
+        caller_secret: str,
+    ) -> dict[str, object]:
+        self._require_mutation_allowed()
+        return self.work_design_projector.project(
+            request,
+            caller_id=caller_id,
+            caller_secret=caller_secret,
+        )
+
+    def work_design_projection(
+        self,
+        idempotency_key: str,
+        *,
+        caller_id: str,
+        caller_secret: str,
+    ) -> dict[str, object]:
+        return self.work_design_projector.read(
+            idempotency_key,
+            caller_id=caller_id,
+            caller_secret=caller_secret,
+        )
 
     def admission_observations(self) -> list[dict[str, object]]:
         return [observation.to_dict() for observation in self._admission_observations()]

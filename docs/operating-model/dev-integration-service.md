@@ -63,6 +63,11 @@ It confirms raw projection is denied and the seeded secret-like value is not
 present in the safe excerpt. It does not call a model and does not create new
 test traffic.
 
+The mutable `POST /v1/context/work-design/projections` route is intentionally
+excluded from generic read-only smoke. Its positive and negative conformance
+tests run in the owner-repo test suite and in the Work Design Landing Unit
+sandbox proof.
+
 ## Failure Handling
 
 - If the profile is not `active`, `up` and `access` refuse to run.
