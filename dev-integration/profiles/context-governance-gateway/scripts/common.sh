@@ -57,6 +57,9 @@ readonly CGG_STATE_PVC="context-governance-gateway-state"
 readonly POSTGRES_PVC="context-governance-gateway-postgresql"
 readonly MINIO_PVC="context-governance-gateway-minio"
 readonly SECRET_NAME="context-governance-gateway-local-secrets"
+readonly WORK_DESIGN_COMPOSITION_ID="work-design-advice"
+readonly WORK_DESIGN_CALLER_SECRET_NAME="context-governance-gateway-work-design-caller"
+readonly WORK_DESIGN_CALLER_SECRET_KEY="CGG_WORK_DESIGN_CALLER_SHARED_SECRET"
 readonly SEED_ARTIFACT_FILE="${STATE_ROOT}/seed-artifact-id.txt"
 
 kubectl_cmd() {
@@ -105,6 +108,89 @@ is_active_profile() {
   [[ "${PROFILE_LIFECYCLE}" == "active" ]]
 }
 
+is_work_design_composition() {
+  [[ "${DEVINT_COMPOSITION_ID:-}" == "${WORK_DESIGN_COMPOSITION_ID}" ]]
+}
+
+validate_work_design_binding_context() {
+  local caller_secret="${CGG_WORK_DESIGN_CALLER_SHARED_SECRET:-}"
+
+  if [[ -n "${caller_secret}" ]] && ! is_work_design_composition; then
+    echo "refused: the Work Design caller binding requires the registered ${WORK_DESIGN_COMPOSITION_ID} composition." >&2
+    return 2
+  fi
+  if is_work_design_composition && [[ -z "${caller_secret}" ]]; then
+    echo "refused: the ${WORK_DESIGN_COMPOSITION_ID} composition did not supply its required CGG caller binding." >&2
+    return 2
+  fi
+  if [[ "${caller_secret}" == *$'\n'* ]]; then
+    echo "refused: the Work Design caller binding contains an invalid newline." >&2
+    return 2
+  fi
+}
+
+reconcile_work_design_binding() {
+  validate_work_design_binding_context
+  if ! is_work_design_composition; then
+    remove_work_design_binding
+    return
+  fi
+
+  python3 - "${NAMESPACE}" "${WORK_DESIGN_CALLER_SECRET_NAME}" "${WORK_DESIGN_CALLER_SECRET_KEY}" <<'PY' |
+import json
+import os
+import sys
+
+namespace, secret_name, secret_key = sys.argv[1:]
+print(json.dumps({
+    "apiVersion": "v1",
+    "kind": "Secret",
+    "metadata": {"name": secret_name, "namespace": namespace},
+    "type": "Opaque",
+    "stringData": {secret_key: os.environ[secret_key]},
+}))
+PY
+    kubectl_cmd apply -f - >/dev/null
+}
+
+remove_work_design_binding() {
+  kubectl_cmd -n "${NAMESPACE}" delete secret "${WORK_DESIGN_CALLER_SECRET_NAME}" \
+    --ignore-not-found=true >/dev/null 2>&1 || true
+}
+
+work_design_binding_state() {
+  if ! is_active_profile || ! command -v k3s >/dev/null 2>&1; then
+    printf 'not-observed'
+    return
+  fi
+
+  local actual_encoded=""
+  actual_encoded="$(
+    kubectl_cmd -n "${NAMESPACE}" get secret "${WORK_DESIGN_CALLER_SECRET_NAME}" \
+      -o "jsonpath={.data.${WORK_DESIGN_CALLER_SECRET_KEY}}" 2>/dev/null || true
+  )"
+  if [[ -z "${actual_encoded}" ]]; then
+    if is_work_design_composition; then
+      printf 'missing'
+    else
+      printf 'absent'
+    fi
+    return
+  fi
+  if ! is_work_design_composition; then
+    printf 'stale'
+    return
+  fi
+
+  local expected_encoded=""
+  expected_encoded="$(printf '%s' "${CGG_WORK_DESIGN_CALLER_SHARED_SECRET}" | base64 | tr -d '\n')"
+  if [[ "${actual_encoded}" == "${expected_encoded}" ]]; then
+    printf 'ready'
+  else
+    printf 'mismatch'
+  fi
+}
+
 write_status_file() {
   ensure_state_dirs
   cat >"${STATUS_FILE}" <<EOF
@@ -118,6 +204,7 @@ launchable: $(is_active_profile && printf 'true' || printf 'false')
 api service: ${API_SERVICE}
 api local port: ${ACCESS_LOCAL_PORT}
 minio local port: ${MINIO_LOCAL_PORT}
+work design caller binding: $(work_design_binding_state)
 EOF
 }
 
@@ -347,6 +434,12 @@ spec:
               value: local
             - name: CGG_ARTIFACT_BACKEND
               value: local
+            - name: CGG_WORK_DESIGN_CALLER_SHARED_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ${WORK_DESIGN_CALLER_SECRET_NAME}
+                  key: ${WORK_DESIGN_CALLER_SECRET_KEY}
+                  optional: true
             - name: PYTHONPATH
               value: apps/api/src:apps/cli/src:apps/dashboard/src:packages/context_adapters/src:packages/context_core/src:packages/context_observability/src:packages/context_policy/src:packages/context_storage/src
           ports:

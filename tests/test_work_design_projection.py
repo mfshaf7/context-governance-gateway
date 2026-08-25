@@ -327,6 +327,33 @@ class WorkDesignProjectionTests(unittest.TestCase):
 
             self.assertEqual(caught.exception.code, "context_projection_unauthorized")
 
+    def test_incorrect_caller_secret_is_denied_without_disclosure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            submitted_secret = "incorrect-composition-binding"
+            service = ContextGatewayService(
+                RuntimeSettings(
+                    root=Path(tmp),
+                    runtime_profile_state="active",
+                    work_design_caller_shared_secret=CALLER_SECRET,
+                )
+            )
+
+            with self.assertRaises(WorkDesignProjectionError) as caught:
+                service.work_design_projector.project(
+                    _request(),
+                    caller_id="operator-orchestration-service",
+                    caller_secret=submitted_secret,
+                    now=NOW,
+                )
+
+            self.assertEqual(caught.exception.code, "context_projection_unauthorized")
+            denials = list((Path(tmp) / ".cgg" / "work-design-denials").glob("*.json"))
+            self.assertEqual(len(denials), 1)
+            self.assertNotIn(
+                submitted_secret,
+                denials[0].read_text(encoding="utf-8"),
+            )
+
     def test_projection_read_requires_the_bound_caller(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             service = ContextGatewayService(

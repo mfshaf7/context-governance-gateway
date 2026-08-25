@@ -63,14 +63,33 @@ Current lifecycle behavior:
 - `status` reports the recorded runtime shape.
 - `up` creates the namespace, local secrets, PVCs, PostgreSQL, MinIO, API,
   worker, and API service only when the lifecycle is `active`.
+- `up` under the registered `work-design-advice` composition consumes the
+  Platform-projected caller binding through a dedicated ephemeral Kubernetes
+  secret. A missing binding or a binding supplied outside that composition is
+  denied.
 - `access` port-forwards the API to `http://localhost:18280`.
 - `smoke` is read-only. In `active`, it reads health, readiness, packet,
   receipt, manifest, dashboard, metrics, and trace surfaces from seeded safe
   devint context without writing new test traffic.
-- `down` scales active runtime deployments to zero and preserves PVCs and
-  local secrets.
+- `down` scales active runtime deployments to zero, preserves PVCs and
+  CGG-local secrets, and removes the composition-lifetime caller binding.
 - `reset` removes the active namespace and local state.
 - `promote-check` explains the gates required before stage handoff.
+
+The standalone profile remains useful for CGG service-shape work, but it does
+not activate Work Design caller admission. Use the registered composition for
+the integrated path:
+
+```text
+make devint-up COMPOSITION=work-design-advice
+make devint-status COMPOSITION=work-design-advice
+make devint-down COMPOSITION=work-design-advice
+```
+
+Platform generates and retains the caller binding for the composition
+lifetime. CGG never writes its value to tracked source, rendered manifests,
+profile status, packet or receipt evidence, or CGG's persistent local secret
+file.
 
 ## Smoke Scope
 
