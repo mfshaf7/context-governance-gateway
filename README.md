@@ -170,6 +170,23 @@ Work Design context projection is an admitted local dev-integration contract:
 The primary integration procedure is
 [`docs/operating-model/work-design-projection.md`](docs/operating-model/work-design-projection.md).
 
+Refinement context projection is a separate contract-admitted boundary:
+
+- OOS remains the only default admitted caller and uses a Refinement-specific
+  credential; Work Design and Refinement replay and denial records cannot
+  collide.
+- The request embeds the versioned `oos.delivery-refinement.v1` assist request
+  and binds its canonical digest, workflow session, execution, and
+  idempotency key.
+- CGG returns only redacted, budgeted content with packet, redaction-receipt,
+  and projection-receipt references. It cannot select or invoke a model,
+  approve a suggestion, or mutate Delivery.
+- The route is implemented but remains fail-closed until the later Platform
+  profile and composition work supplies its dedicated caller binding.
+
+The primary contract and operator guidance is
+[`docs/operating-model/refinement-projection.md`](docs/operating-model/refinement-projection.md).
+
 ## Safety Model
 
 Default posture is deny raw model projection. If detection is uncertain or

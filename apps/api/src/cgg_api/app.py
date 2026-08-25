@@ -15,6 +15,7 @@ except ImportError as exc:  # pragma: no cover - exercised only when running wit
 
 from .runtime import RuntimeSettings
 from .service import ContextGatewayService, RuntimeGateError
+from .refinement import RefinementProjectionError, RefinementProjectionRequest
 from .work_design import WorkDesignProjectionError, WorkDesignProjectionRequest
 
 
@@ -62,6 +63,72 @@ class WorkDesignContextProjectionRequest(BaseModel):
     budget_tokens: int = Field(default=4_000, ge=1, le=8_000)
 
 
+class RefinementOperatorBinding(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    id: str = Field(min_length=1, max_length=256)
+    handle: str | None = Field(default=None, min_length=1, max_length=256)
+
+
+class RefinementTaskBinding(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    kind: Literal["metadata_advice"]
+    contract_ref: Literal["oos.delivery-refinement.v1"]
+    version: Literal["1.0"]
+
+
+class RefinementPacketBinding(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    packet_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    packet_revision: str = Field(min_length=1, max_length=256)
+    source_work_design_receipt_id: str = Field(min_length=1, max_length=512)
+
+
+class RefinementTargetBinding(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    field_key: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    field_label: str = Field(min_length=1, max_length=256)
+    field_kind: Literal["long_text", "number", "select", "short_text"]
+    required: bool
+    source_value: str = Field(max_length=64_000)
+    draft_value: str = Field(max_length=64_000)
+    selected_node_ids: list[str] = Field(min_length=1)
+    allowed_values: list[str]
+
+
+class RefinementAssistRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    schema_version: Literal[1]
+    request_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    correlation_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    delivery_id: str = Field(pattern=r"^delivery-[1-9][0-9]*$")
+    package_ref: str = Field(min_length=1, max_length=512)
+    source_ref: str = Field(min_length=1, max_length=512)
+    source_revision: str = Field(min_length=1, max_length=256)
+    operator: RefinementOperatorBinding
+    task: RefinementTaskBinding
+    packet: RefinementPacketBinding
+    target: RefinementTargetBinding
+    operator_prompt: str = Field(min_length=1, max_length=4_000)
+
+
+class RefinementContextProjectionRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    schema_version: Literal[1]
+    idempotency_key: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    workflow_session_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    execution_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    requested_at: str = Field(min_length=1, max_length=64)
+    assist_request: RefinementAssistRequest
+    assist_request_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    budget_tokens: int = Field(default=4_000, ge=1, le=8_000)
+
+
 def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
     service = ContextGatewayService(settings or RuntimeSettings.from_env())
     app = FastAPI(
@@ -74,7 +141,18 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
     async def bounded_validation_error(
         request: Request, exc: RequestValidationError
     ) -> Response:
-        if request.url.path.startswith("/v1/context/work-design/projections"):
+        projection_surface = next(
+            (
+                label
+                for prefix, label in (
+                    ("/v1/context/work-design/projections", "Work Design"),
+                    ("/v1/context/refinement/projections", "Refinement"),
+                )
+                if request.url.path.startswith(prefix)
+            ),
+            None,
+        )
+        if projection_surface:
             oversized = any(
                 error.get("type") in {"string_too_long", "less_than_equal"}
                 and tuple(error.get("loc") or ())[-1:] in {("context",), ("budget_tokens",)}
@@ -88,7 +166,7 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
                         "schema_version": 1,
                         "status": "denied",
                         "code": code,
-                        "message": "Work Design projection request failed contract validation",
+                        "message": f"{projection_surface} projection request failed contract validation",
                         "retryable": False,
                     }
                 },
@@ -216,6 +294,70 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail="Work Design projection not found") from exc
         except WorkDesignProjectionError as exc:
+            raise HTTPException(status_code=403, detail=exc.to_dict()) from exc
+
+    @app.post("/v1/context/refinement/projections")
+    def project_refinement(
+        request: RefinementContextProjectionRequest,
+        caller_id: str = Header(
+            alias="x-cgg-caller-id",
+            min_length=1,
+            max_length=256,
+            pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+        ),
+        caller_secret: str = Header(
+            alias="x-cgg-caller-secret", min_length=1, max_length=1024
+        ),
+    ) -> dict[str, Any]:
+        projection_request = RefinementProjectionRequest(
+            idempotency_key=request.idempotency_key,
+            workflow_session_id=request.workflow_session_id,
+            execution_id=request.execution_id,
+            requested_at=request.requested_at,
+            assist_request=request.assist_request.model_dump(exclude_none=True),
+            assist_request_digest=request.assist_request_digest,
+            budget_tokens=request.budget_tokens,
+        )
+        try:
+            return service.project_refinement(
+                projection_request,
+                caller_id=caller_id,
+                caller_secret=caller_secret,
+            )
+        except RuntimeGateError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except RefinementProjectionError as exc:
+            status_code = {
+                "context_projection_unauthorized": 403,
+                "context_projection_replay_conflict": 409,
+                "context_projection_in_progress": 409,
+                "context_projection_oversized": 413,
+                "context_projection_failed": 503,
+            }.get(exc.code, 400)
+            raise HTTPException(status_code=status_code, detail=exc.to_dict()) from exc
+
+    @app.get("/v1/context/refinement/projections/{idempotency_key}")
+    def refinement_projection(
+        idempotency_key: str,
+        caller_id: str = Header(
+            alias="x-cgg-caller-id",
+            min_length=1,
+            max_length=256,
+            pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+        ),
+        caller_secret: str = Header(
+            alias="x-cgg-caller-secret", min_length=1, max_length=1024
+        ),
+    ) -> dict[str, Any]:
+        try:
+            return service.refinement_projection(
+                idempotency_key,
+                caller_id=caller_id,
+                caller_secret=caller_secret,
+            )
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Refinement projection not found") from exc
+        except RefinementProjectionError as exc:
             raise HTTPException(status_code=403, detail=exc.to_dict()) from exc
 
     @app.get("/v1/observability/admissions")

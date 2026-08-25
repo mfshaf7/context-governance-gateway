@@ -14,6 +14,7 @@ from context_observability import (
 )
 
 from .runtime import RuntimeSettings
+from .refinement import RefinementContextProjector, RefinementProjectionRequest
 from .work_design import WorkDesignContextProjector, WorkDesignProjectionRequest
 
 
@@ -41,6 +42,18 @@ class ContextGatewayService:
             max_request_age_seconds=self.settings.work_design_max_request_age_seconds,
             pending_timeout_seconds=self.settings.work_design_pending_timeout_seconds,
         )
+        self.refinement_projector = RefinementContextProjector(
+            store=self.settings.storage.refinement_projection_store(self.settings.root),
+            project_text=self.project_text,
+            load_packet=self.packet,
+            load_receipt=self.receipt,
+            allowed_callers=self.settings.refinement_allowed_callers,
+            caller_shared_secret=self.settings.refinement_caller_shared_secret,
+            max_context_bytes=self.settings.refinement_max_context_bytes,
+            max_budget_tokens=self.settings.refinement_max_budget_tokens,
+            max_request_age_seconds=self.settings.refinement_max_request_age_seconds,
+            pending_timeout_seconds=self.settings.refinement_pending_timeout_seconds,
+        )
 
     def health(self) -> dict[str, object]:
         return {
@@ -52,6 +65,11 @@ class ContextGatewayService:
             "capabilities": {
                 "work_design_projection": {
                     "auth_configured": self.settings.work_design_projection_auth_configured,
+                    "model_invocation": False,
+                    "delivery_mutation": False,
+                },
+                "refinement_projection": {
+                    "auth_configured": self.settings.refinement_projection_auth_configured,
                     "model_invocation": False,
                     "delivery_mutation": False,
                 }
@@ -72,6 +90,12 @@ class ContextGatewayService:
                     "ready": bool(
                         self.settings.mutation_allowed
                         and self.settings.work_design_projection_auth_configured
+                    )
+                },
+                "refinement_projection": {
+                    "ready": bool(
+                        self.settings.mutation_allowed
+                        and self.settings.refinement_projection_auth_configured
                     )
                 }
             },
@@ -131,6 +155,33 @@ class ContextGatewayService:
         caller_secret: str,
     ) -> dict[str, object]:
         return self.work_design_projector.read(
+            idempotency_key,
+            caller_id=caller_id,
+            caller_secret=caller_secret,
+        )
+
+    def project_refinement(
+        self,
+        request: RefinementProjectionRequest,
+        *,
+        caller_id: str,
+        caller_secret: str,
+    ) -> dict[str, object]:
+        self._require_mutation_allowed()
+        return self.refinement_projector.project(
+            request,
+            caller_id=caller_id,
+            caller_secret=caller_secret,
+        )
+
+    def refinement_projection(
+        self,
+        idempotency_key: str,
+        *,
+        caller_id: str,
+        caller_secret: str,
+    ) -> dict[str, object]:
+        return self.refinement_projector.read(
             idempotency_key,
             caller_id=caller_id,
             caller_secret=caller_secret,

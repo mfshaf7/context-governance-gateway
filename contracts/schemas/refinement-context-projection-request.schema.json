@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.context-governance-gateway.local/refinement-context-projection-request.schema.json",
+  "title": "Refinement Context Projection Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "idempotency_key", "workflow_session_id", "execution_id", "requested_at", "assist_request", "assist_request_digest", "budget_tokens"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "idempotency_key": { "$ref": "#/$defs/stableId" },
+    "workflow_session_id": { "$ref": "#/$defs/stableId" },
+    "execution_id": { "$ref": "#/$defs/stableId" },
+    "requested_at": { "type": "string", "format": "date-time" },
+    "assist_request": { "$ref": "#/$defs/assistRequest" },
+    "assist_request_digest": { "$ref": "#/$defs/sha256" },
+    "budget_tokens": { "type": "integer", "minimum": 1, "maximum": 8000 }
+  },
+  "$defs": {
+    "stableId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$" },
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "operator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "handle": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "contract_ref", "version"],
+      "properties": {
+        "kind": { "const": "metadata_advice" },
+        "contract_ref": { "const": "oos.delivery-refinement.v1" },
+        "version": { "const": "1.0" }
+      }
+    },
+    "packet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["packet_id", "packet_revision", "source_work_design_receipt_id"],
+      "properties": {
+        "packet_id": { "$ref": "#/$defs/stableId" },
+        "packet_revision": { "$ref": "#/$defs/nonEmptyString" },
+        "source_work_design_receipt_id": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field_key", "field_label", "field_kind", "required", "source_value", "draft_value", "selected_node_ids", "allowed_values"],
+      "properties": {
+        "field_key": { "$ref": "#/$defs/stableId" },
+        "field_label": { "$ref": "#/$defs/nonEmptyString" },
+        "field_kind": { "enum": ["long_text", "number", "select", "short_text"] },
+        "required": { "type": "boolean" },
+        "source_value": { "type": "string" },
+        "draft_value": { "type": "string" },
+        "selected_node_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/stableId" } },
+        "allowed_values": { "type": "array", "uniqueItems": true, "items": { "type": "string" } }
+      }
+    },
+    "assistRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "request_id", "correlation_id", "delivery_id", "package_ref", "source_ref", "source_revision", "operator", "task", "packet", "target", "operator_prompt"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "request_id": { "$ref": "#/$defs/stableId" },
+        "correlation_id": { "$ref": "#/$defs/stableId" },
+        "delivery_id": { "type": "string", "pattern": "^delivery-[1-9][0-9]*$" },
+        "package_ref": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "source_ref": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "source_revision": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "operator": { "$ref": "#/$defs/operator" },
+        "task": { "$ref": "#/$defs/task" },
+        "packet": { "$ref": "#/$defs/packet" },
+        "target": { "$ref": "#/$defs/target" },
+        "operator_prompt": { "type": "string", "minLength": 1, "maxLength": 4000 }
+      }
+    }
+  }
+}
