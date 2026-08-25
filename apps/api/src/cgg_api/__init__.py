@@ -2,6 +2,11 @@
 
 from .runtime import RuntimeSettings
 from .service import ContextGatewayService, RuntimeGateError
+from .refinement import (
+    RefinementContextProjector,
+    RefinementProjectionError,
+    RefinementProjectionRequest,
+)
 from .work_design import (
     WorkDesignContextProjector,
     WorkDesignProjectionError,
@@ -10,6 +15,9 @@ from .work_design import (
 
 __all__ = [
     "ContextGatewayService",
+    "RefinementContextProjector",
+    "RefinementProjectionError",
+    "RefinementProjectionRequest",
     "RuntimeGateError",
     "RuntimeSettings",
     "WorkDesignContextProjector",

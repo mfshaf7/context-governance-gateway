@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import hashlib
-import hmac
 import json
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Callable
 
 from context_storage import LocalWorkDesignProjectionStore
 
-from context_adapters import AdapterPolicyError, GovernedAiGatewayContextAdapter
+from .projection import ReceiptBoundContextProjector
 
 
 WORK_DESIGN_TASK_CONTRACT = "oos.delivery-work-design.v1"
@@ -100,7 +99,8 @@ class WorkDesignProjectionRequest:
         ):
             if not value or len(value) > limit:
                 raise WorkDesignProjectionError(
-                    "context_projection_invalid", f"{name} must be present and at most {limit} characters"
+                    "context_projection_invalid",
+                    f"{name} must be present and at most {limit} characters",
                 )
         if self.task_kind not in WORK_DESIGN_TASK_KINDS:
             raise WorkDesignProjectionError(
@@ -108,7 +108,8 @@ class WorkDesignProjectionRequest:
             )
         if self.task_contract_ref != WORK_DESIGN_TASK_CONTRACT:
             raise WorkDesignProjectionError(
-                "context_projection_invalid", "task_contract_ref does not match the admitted contract"
+                "context_projection_invalid",
+                "task_contract_ref does not match the admitted contract",
             )
         if self.task_version != WORK_DESIGN_TASK_VERSION:
             raise WorkDesignProjectionError(
@@ -116,7 +117,8 @@ class WorkDesignProjectionRequest:
             )
         if self.model_profile_id != WORK_DESIGN_MODEL_PROFILE:
             raise WorkDesignProjectionError(
-                "context_projection_invalid", "model_profile_id does not match the admitted logical profile"
+                "context_projection_invalid",
+                "model_profile_id does not match the admitted logical profile",
             )
         if not self.context:
             raise WorkDesignProjectionError(
@@ -167,17 +169,14 @@ class WorkDesignProjectionRequest:
         except json.JSONDecodeError:
             context = self.context
         return _canonical_json(
-            {
-                "binding": self.binding(caller_id),
-                "work_design_context": context,
-            }
+            {"binding": self.binding(caller_id), "work_design_context": context}
         )
 
     def request_digest(self, caller_id: str) -> str:
         return _digest_text(self.canonical_projection_text(caller_id))
 
 
-class WorkDesignContextProjector:
+class WorkDesignContextProjector(ReceiptBoundContextProjector):
     def __init__(
         self,
         *,
@@ -192,306 +191,21 @@ class WorkDesignContextProjector:
         max_request_age_seconds: int,
         pending_timeout_seconds: int,
     ) -> None:
-        self.store = store
-        self.project_text = project_text
-        self.load_packet = load_packet
-        self.load_receipt = load_receipt
-        self.allowed_callers = allowed_callers
-        self.caller_shared_secret = caller_shared_secret
-        self.max_context_bytes = max_context_bytes
-        self.max_budget_tokens = max_budget_tokens
-        self.max_request_age_seconds = max_request_age_seconds
-        self.pending_timeout_seconds = pending_timeout_seconds
-
-    def project(
-        self,
-        request: WorkDesignProjectionRequest,
-        *,
-        caller_id: str,
-        caller_secret: str,
-        now: datetime | None = None,
-    ) -> dict[str, object]:
-        current = now or datetime.now(timezone.utc)
-        try:
-            request.validate_shape()
-            self._validate_admission(
-                request,
-                caller_id=caller_id,
-                caller_secret=caller_secret,
-                now=current,
-            )
-        except WorkDesignProjectionError as exc:
-            self._record_denial(request, caller_id=caller_id, error=exc, now=current)
-            raise
-
-        request_digest = request.request_digest(caller_id)
-        existing = self.store.read(request.idempotency_key)
-        if existing is not None:
-            replay = self._resolve_existing(
-                existing,
-                request=request,
-                caller_id=caller_id,
-                request_digest=request_digest,
-                now=current,
-            )
-            if replay is not None:
-                return replay
-
-        pending = {
-            "schema_version": 1,
-            "status": "pending",
-            "idempotency_key": request.idempotency_key,
-            "request_digest": request_digest,
-            "binding": request.binding(caller_id),
-            "started_at": _format_timestamp(current),
-            "attempt": int(existing.get("attempt", 0)) + 1 if existing else 1,
-        }
-        created = self.store.create(request.idempotency_key, pending) if existing is None else False
-        if not created:
-            if existing is None:
-                race = self.store.read(request.idempotency_key)
-                if race is None:
-                    raise WorkDesignProjectionError(
-                        "context_projection_failed",
-                        "projection replay record could not be read after reservation",
-                        retryable=True,
-                    )
-                replay = self._resolve_existing(
-                    race,
-                    request=request,
-                    caller_id=caller_id,
-                    request_digest=request_digest,
-                    now=current,
-                )
-                if replay is not None:
-                    return replay
-                pending["attempt"] = int(race.get("attempt", 0)) + 1
-            self.store.replace(request.idempotency_key, pending)
-
-        try:
-            result = self.project_text(
-                request.canonical_projection_text(caller_id),
-                source_label=f"work-design:{request.delivery_id}:{request.package_ref}",
-                profile_name="developer",
-                budget_tokens=request.budget_tokens,
-                source_type="work-design-assist",
-            )
-            artifact_id = str(result["artifact_id"])
-            packet = self.load_packet(artifact_id)
-            receipt = self.load_receipt(artifact_id)
-            handoff = GovernedAiGatewayContextAdapter().to_model_safe_packet(packet, receipt)
-            admission = dict(packet["admission_decision"])
-            if not admission.get("redaction_safe") or admission.get("raw_projection") == "allowed-raw":
-                raise WorkDesignProjectionError(
-                    "context_projection_unsafe",
-                    "CGG denied Work Design projection because the admitted packet is not model-safe",
-                )
-            projected_at = str(packet["captured_at"])
-            try:
-                projected_time = _parse_timestamp(projected_at)
-            except WorkDesignProjectionError as exc:
-                raise WorkDesignProjectionError(
-                    "context_projection_failed",
-                    "CGG projection returned an invalid timeline",
-                    retryable=True,
-                ) from exc
-            if projected_time + timedelta(seconds=1) < _parse_timestamp(request.requested_at):
-                raise WorkDesignProjectionError(
-                    "context_projection_failed",
-                    "CGG projection timeline precedes the bound request",
-                    retryable=True,
-                )
-            completed_at = max(datetime.now(timezone.utc), projected_time)
-            response = {
-                "schema_version": 1,
-                "status": "ready",
-                "replayed": False,
-                "request_id": request.request_id,
-                "correlation_id": request.correlation_id,
-                "idempotency_key": request.idempotency_key,
-                "request_digest": request_digest,
-                "binding": request.binding(caller_id),
-                "artifact_id": artifact_id,
-                "artifact_digest": str(result["artifact_digest"]),
-                "packet_ref": handoff["packet_ref"],
-                "redaction_receipt_ref": handoff["redaction_receipt_ref"],
-                "projection_receipt_ref": self.store.reference(request.idempotency_key),
-                "content": handoff["content"],
-                "admission_decision": {
-                    "profile": admission.get("profile"),
-                    "raw_projection": admission.get("raw_projection"),
-                    "redaction_safe": admission.get("redaction_safe"),
-                },
-                "timeline": {
-                    "requested_at": request.requested_at,
-                    "projected_at": projected_at,
-                },
-                "authority": {
-                    "may_select_or_invoke_model": False,
-                    "may_approve_suggestion": False,
-                    "may_mutate_delivery": False,
-                },
-            }
-            self.store.replace(
-                request.idempotency_key,
-                {
-                    **pending,
-                    "status": "ready",
-                    "completed_at": _format_timestamp(completed_at),
-                    "response": response,
-                },
-            )
-            return response
-        except WorkDesignProjectionError as error:
-            self.store.replace(
-                request.idempotency_key,
-                {
-                    **pending,
-                    "status": "failed" if error.retryable else "denied",
-                    "failed_at": _format_timestamp(current),
-                    "error": error.to_dict(),
-                },
-            )
-            raise
-        except (AdapterPolicyError, KeyError, OSError, TypeError, ValueError) as exc:
-            error = WorkDesignProjectionError(
-                "context_projection_failed",
-                "CGG could not produce a complete receipt-bound Work Design projection",
-                retryable=True,
-            )
-            self.store.replace(
-                request.idempotency_key,
-                {
-                    **pending,
-                    "status": "failed",
-                    "failed_at": _format_timestamp(current),
-                    "error": error.to_dict(),
-                },
-            )
-            raise error from exc
-
-    def read(
-        self,
-        idempotency_key: str,
-        *,
-        caller_id: str,
-        caller_secret: str,
-    ) -> dict[str, object]:
-        if not _STABLE_ID.fullmatch(idempotency_key):
-            raise WorkDesignProjectionError(
-                "context_projection_invalid", "idempotency_key must be a stable identifier"
-            )
-        record = self.store.read(idempotency_key)
-        if record is None:
-            raise FileNotFoundError(idempotency_key)
-        binding = dict(record.get("binding") or {})
-        if (
-            not self._caller_authorized(caller_id, caller_secret)
-            or binding.get("caller_id") != caller_id
-        ):
-            raise WorkDesignProjectionError(
-                "context_projection_unauthorized", "caller cannot read this Work Design projection"
-            )
-        return record
-
-    def _validate_admission(
-        self,
-        request: WorkDesignProjectionRequest,
-        *,
-        caller_id: str,
-        caller_secret: str,
-        now: datetime,
-    ) -> None:
-        if not self._caller_authorized(caller_id, caller_secret):
-            raise WorkDesignProjectionError(
-                "context_projection_unauthorized", "caller is not admitted for Work Design projection"
-            )
-        context_bytes = len(request.context.encode("utf-8"))
-        if context_bytes > self.max_context_bytes or request.budget_tokens > self.max_budget_tokens:
-            raise WorkDesignProjectionError(
-                "context_projection_oversized", "Work Design context exceeds the admitted projection budget"
-            )
-        requested_at = _parse_timestamp(request.requested_at)
-        age_seconds = (now - requested_at).total_seconds()
-        if age_seconds > self.max_request_age_seconds or age_seconds < -30:
-            raise WorkDesignProjectionError(
-                "context_projection_stale", "Work Design projection request is outside the admitted time window"
-            )
-
-    def _caller_authorized(self, caller_id: str, caller_secret: str) -> bool:
-        expected = self.caller_shared_secret
-        return bool(
-            caller_id in self.allowed_callers
-            and expected
-            and caller_secret
-            and hmac.compare_digest(caller_secret, expected)
-        )
-
-    def _resolve_existing(
-        self,
-        existing: dict[str, object],
-        *,
-        request: WorkDesignProjectionRequest,
-        caller_id: str,
-        request_digest: str,
-        now: datetime,
-    ) -> dict[str, object] | None:
-        if existing.get("request_digest") != request_digest:
-            error = WorkDesignProjectionError(
-                "context_projection_replay_conflict",
-                "idempotency_key is already bound to different Work Design context",
-            )
-            self._record_denial(request, caller_id=caller_id, error=error, now=now)
-            raise error
-        status = existing.get("status")
-        if status == "ready" and isinstance(existing.get("response"), dict):
-            return {**dict(existing["response"]), "replayed": True}
-        if status == "pending":
-            started_at = _parse_timestamp(str(existing.get("started_at") or request.requested_at))
-            if (now - started_at).total_seconds() <= self.pending_timeout_seconds:
-                raise WorkDesignProjectionError(
-                    "context_projection_in_progress",
-                    "an identical Work Design projection is already in progress",
-                    retryable=True,
-                )
-        if status == "denied" and isinstance(existing.get("error"), dict):
-            error = dict(existing["error"])
-            raise WorkDesignProjectionError(
-                str(error.get("code") or "context_projection_unsafe"),
-                str(error.get("message") or "Work Design projection was denied"),
-                retryable=bool(error.get("retryable")),
-            )
-        if status not in {"pending", "failed"}:
-            raise WorkDesignProjectionError(
-                "context_projection_failed",
-                "stored Work Design projection has an unsupported recovery state",
-                retryable=True,
-            )
-        return None
-
-    def _record_denial(
-        self,
-        request: WorkDesignProjectionRequest,
-        *,
-        caller_id: str,
-        error: WorkDesignProjectionError,
-        now: datetime,
-    ) -> None:
-        binding = {
-            "request_id": request.request_id,
-            "correlation_id": request.correlation_id,
-            "idempotency_key": request.idempotency_key,
-            "caller_id": caller_id,
-            "context_digest": request.context_digest,
-        }
-        self.store.record_denial(
-            {
-                "schema_version": 1,
-                "status": "denied",
-                "recorded_at": _format_timestamp(now),
-                "binding": binding,
-                "error": error.to_dict(),
-            }
+        super().__init__(
+            store=store,
+            project_text=project_text,
+            load_packet=load_packet,
+            load_receipt=load_receipt,
+            allowed_callers=allowed_callers,
+            caller_shared_secret=caller_shared_secret,
+            max_context_bytes=max_context_bytes,
+            max_budget_tokens=max_budget_tokens,
+            max_request_age_seconds=max_request_age_seconds,
+            pending_timeout_seconds=pending_timeout_seconds,
+            surface_name="Work Design",
+            source_label="work-design",
+            source_type="work-design-assist",
+            error_type=WorkDesignProjectionError,
         )
 
 
@@ -515,7 +229,3 @@ def _parse_timestamp(value: str) -> datetime:
             "context_projection_invalid", "requested_at must include a timezone"
         )
     return parsed.astimezone(timezone.utc)
-
-
-def _format_timestamp(value: datetime) -> str:
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")

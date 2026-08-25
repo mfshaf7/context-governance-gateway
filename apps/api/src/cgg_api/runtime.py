@@ -19,6 +19,12 @@ class RuntimeSettings:
     work_design_max_budget_tokens: int = 8_000
     work_design_max_request_age_seconds: int = 300
     work_design_pending_timeout_seconds: int = 120
+    refinement_allowed_callers: frozenset[str] = frozenset({"operator-orchestration-service"})
+    refinement_caller_shared_secret: str | None = None
+    refinement_max_context_bytes: int = 262_144
+    refinement_max_budget_tokens: int = 8_000
+    refinement_max_request_age_seconds: int = 300
+    refinement_pending_timeout_seconds: int = 120
     storage: StorageSettings = StorageSettings()
 
     @classmethod
@@ -27,10 +33,17 @@ class RuntimeSettings:
         state = os.environ.get("CGG_RUNTIME_PROFILE_STATE", "build-admitted").strip() or "build-admitted"
         profile = os.environ.get("CGG_DEFAULT_PROFILE", "developer").strip() or "developer"
         raw_budget = os.environ.get("CGG_DEFAULT_BUDGET_TOKENS", "2000").strip()
-        callers = frozenset(
+        work_design_callers = frozenset(
             caller.strip()
             for caller in os.environ.get(
                 "CGG_WORK_DESIGN_ALLOWED_CALLERS", "operator-orchestration-service"
+            ).split(",")
+            if caller.strip()
+        )
+        refinement_callers = frozenset(
+            caller.strip()
+            for caller in os.environ.get(
+                "CGG_REFINEMENT_ALLOWED_CALLERS", "operator-orchestration-service"
             ).split(",")
             if caller.strip()
         )
@@ -39,7 +52,7 @@ class RuntimeSettings:
             runtime_profile_state=state,
             default_profile=profile,
             default_budget_tokens=int(raw_budget),
-            work_design_allowed_callers=callers,
+            work_design_allowed_callers=work_design_callers,
             work_design_caller_shared_secret=os.environ.get(
                 "CGG_WORK_DESIGN_CALLER_SHARED_SECRET"
             ),
@@ -55,6 +68,22 @@ class RuntimeSettings:
             work_design_pending_timeout_seconds=int(
                 os.environ.get("CGG_WORK_DESIGN_PENDING_TIMEOUT_SECONDS", "120")
             ),
+            refinement_allowed_callers=refinement_callers,
+            refinement_caller_shared_secret=os.environ.get(
+                "CGG_REFINEMENT_CALLER_SHARED_SECRET"
+            ),
+            refinement_max_context_bytes=int(
+                os.environ.get("CGG_REFINEMENT_MAX_CONTEXT_BYTES", "262144")
+            ),
+            refinement_max_budget_tokens=int(
+                os.environ.get("CGG_REFINEMENT_MAX_BUDGET_TOKENS", "8000")
+            ),
+            refinement_max_request_age_seconds=int(
+                os.environ.get("CGG_REFINEMENT_MAX_REQUEST_AGE_SECONDS", "300")
+            ),
+            refinement_pending_timeout_seconds=int(
+                os.environ.get("CGG_REFINEMENT_PENDING_TIMEOUT_SECONDS", "120")
+            ),
             storage=StorageSettings.from_env(),
         )
 
@@ -67,3 +96,7 @@ class RuntimeSettings:
         return bool(
             self.work_design_allowed_callers and self.work_design_caller_shared_secret
         )
+
+    @property
+    def refinement_projection_auth_configured(self) -> bool:
+        return bool(self.refinement_allowed_callers and self.refinement_caller_shared_secret)
