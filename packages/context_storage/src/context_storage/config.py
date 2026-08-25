@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .adapters import ArtifactCustody, MetadataStore, MinioS3ArtifactCustody, PostgresPgvectorMetadataStore
 from .local import LocalContextStore
+from .work_design import LocalWorkDesignProjectionStore
 
 
 @dataclass(frozen=True)
@@ -43,3 +44,10 @@ class StorageSettings:
                 raise ValueError("CGG_S3_ENDPOINT_URL and CGG_S3_BUCKET are required for minio-s3 custody.")
             return MinioS3ArtifactCustody(endpoint_url=self.s3_endpoint_url, bucket=self.s3_bucket)
         raise ValueError(f"unsupported CGG artifact backend: {self.artifact_backend}")
+
+    def work_design_projection_store(self, root: Path) -> LocalWorkDesignProjectionStore:
+        if self.metadata_backend != "local":
+            raise NotImplementedError(
+                "Work Design replay persistence requires the admitted metadata backend adapter."
+            )
+        return LocalWorkDesignProjectionStore(root)

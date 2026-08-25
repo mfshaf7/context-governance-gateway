@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.context-governance-gateway.local/work-design-context-projection-result.schema.json",
+  "title": "Work Design Context Projection Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "replayed",
+    "request_id",
+    "correlation_id",
+    "idempotency_key",
+    "request_digest",
+    "binding",
+    "artifact_id",
+    "artifact_digest",
+    "packet_ref",
+    "redaction_receipt_ref",
+    "projection_receipt_ref",
+    "content",
+    "admission_decision",
+    "timeline",
+    "authority"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "status": {"const": "ready"},
+    "replayed": {"type": "boolean"},
+    "request_id": {"$ref": "#/$defs/stableId"},
+    "correlation_id": {"$ref": "#/$defs/stableId"},
+    "idempotency_key": {"$ref": "#/$defs/stableId"},
+    "request_digest": {"$ref": "#/$defs/sha256"},
+    "binding": {"$ref": "#/$defs/binding"},
+    "artifact_id": {"$ref": "#/$defs/stableId"},
+    "artifact_digest": {"$ref": "#/$defs/sha256"},
+    "packet_ref": {
+      "type": "string",
+      "pattern": "^/v1/context/packets/[A-Za-z0-9._:-]+$"
+    },
+    "redaction_receipt_ref": {
+      "type": "string",
+      "pattern": "^/v1/context/receipts/[A-Za-z0-9._:-]+$"
+    },
+    "projection_receipt_ref": {
+      "type": "string",
+      "pattern": "^/v1/context/work-design/projections/[A-Za-z0-9._:-]+$"
+    },
+    "content": {"type": "string", "minLength": 1},
+    "admission_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile", "raw_projection", "redaction_safe"],
+      "properties": {
+        "profile": {"const": "developer"},
+        "raw_projection": {"enum": ["not_requested", "denied"]},
+        "redaction_safe": {"const": true}
+      }
+    },
+    "timeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requested_at", "projected_at"],
+      "properties": {
+        "requested_at": {"type": "string", "format": "date-time"},
+        "projected_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "may_select_or_invoke_model",
+        "may_approve_suggestion",
+        "may_mutate_delivery"
+      ],
+      "properties": {
+        "may_select_or_invoke_model": {"const": false},
+        "may_approve_suggestion": {"const": false},
+        "may_mutate_delivery": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "correlation_id",
+        "idempotency_key",
+        "workflow_session_id",
+        "execution_id",
+        "delivery_id",
+        "package_ref",
+        "source_ref",
+        "source_revision",
+        "caller_id",
+        "operator_id",
+        "task",
+        "requested_at",
+        "context_digest",
+        "budget_tokens"
+      ],
+      "properties": {
+        "request_id": {"$ref": "#/$defs/stableId"},
+        "correlation_id": {"$ref": "#/$defs/stableId"},
+        "idempotency_key": {"$ref": "#/$defs/stableId"},
+        "workflow_session_id": {"$ref": "#/$defs/stableId"},
+        "execution_id": {"$ref": "#/$defs/stableId"},
+        "delivery_id": {"type": "string", "pattern": "^delivery-[1-9][0-9]*$"},
+        "package_ref": {"type": "string", "minLength": 1, "maxLength": 512},
+        "source_ref": {"type": "string", "minLength": 1, "maxLength": 512},
+        "source_revision": {"type": "string", "minLength": 1, "maxLength": 256},
+        "caller_id": {"$ref": "#/$defs/stableId"},
+        "operator_id": {"$ref": "#/$defs/stableId"},
+        "task": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "contract_ref",
+            "version",
+            "output_schema_ref",
+            "model_profile_id"
+          ],
+          "properties": {
+            "kind": {"enum": ["context_advice", "tree_advice"]},
+            "contract_ref": {"const": "oos.delivery-work-design.v1"},
+            "version": {"const": "1.0"},
+            "output_schema_ref": {"type": "string", "minLength": 1, "maxLength": 512},
+            "model_profile_id": {"const": "delivery-work-design-advisor-v1"}
+          }
+        },
+        "requested_at": {"type": "string", "format": "date-time"},
+        "context_digest": {"$ref": "#/$defs/sha256"},
+        "budget_tokens": {"type": "integer", "minimum": 1, "maximum": 8000}
+      }
+    },
+    "stableId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

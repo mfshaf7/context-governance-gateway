@@ -54,7 +54,7 @@ RULES = (
     RedactionRule(
         "json-secret-field",
         re.compile(
-            r'(?i)("?(?:secret|token|password|api[_-]?key|client[_-]?secret|private[_-]?key)"?\s*:\s*)("[^"]+"|[^\s,}]+)'
+            r'(?i)("?(?:(?:[A-Z0-9]+[_-])*(?:secret|password|passphrase|token)|(?:[A-Z0-9]+[_-])*(?:api|access|private)[_-]?key)"?\s*:\s*)("[^"]+"|[^\s,}]+)'
         ),
         r"\1<redacted:secret-field>",
         "Sensitive key/value field",

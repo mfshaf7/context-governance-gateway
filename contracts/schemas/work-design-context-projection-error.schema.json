@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.context-governance-gateway.local/work-design-context-projection-error.schema.json",
+  "title": "Work Design Context Projection Error",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "code", "message", "retryable"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "status": {"const": "denied"},
+    "code": {
+      "enum": [
+        "context_projection_failed",
+        "context_projection_in_progress",
+        "context_projection_invalid",
+        "context_projection_oversized",
+        "context_projection_replay_conflict",
+        "context_projection_stale",
+        "context_projection_unauthorized",
+        "context_projection_unsafe"
+      ]
+    },
+    "message": {"type": "string", "minLength": 1, "maxLength": 512},
+    "retryable": {"type": "boolean"}
+  }
+}

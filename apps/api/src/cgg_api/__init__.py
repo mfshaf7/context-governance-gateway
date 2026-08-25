@@ -2,5 +2,17 @@
 
 from .runtime import RuntimeSettings
 from .service import ContextGatewayService, RuntimeGateError
+from .work_design import (
+    WorkDesignContextProjector,
+    WorkDesignProjectionError,
+    WorkDesignProjectionRequest,
+)
 
-__all__ = ["ContextGatewayService", "RuntimeGateError", "RuntimeSettings"]
+__all__ = [
+    "ContextGatewayService",
+    "RuntimeGateError",
+    "RuntimeSettings",
+    "WorkDesignContextProjector",
+    "WorkDesignProjectionError",
+    "WorkDesignProjectionRequest",
+]
