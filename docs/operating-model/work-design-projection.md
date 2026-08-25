@@ -78,3 +78,21 @@ secret is compared in constant time and is never stored in packet, receipt,
 denial, or replay records. Changing these values does not activate a model
 route or grant a new caller. Caller admission and model-profile activation
 remain separate Platform and Security decisions.
+
+## Dev-Integration Binding
+
+The integrated runtime is launched through the Platform-owned
+`work-design-advice` composition. Platform generates one private caller value
+for the composition lifetime and projects matching environment bindings to
+OOS and this CGG profile.
+
+CGG accepts its binding only when `DEVINT_COMPOSITION_ID` identifies that
+registered composition. The profile writes the value directly to a dedicated
+ephemeral Kubernetes secret, references it from the API deployment, reports
+only `ready`, `missing`, `mismatch`, `absent`, or `stale`, and deletes the
+secret on teardown. It does not copy the value into rendered manifests,
+persistent CGG-local secrets, packets, receipts, or status output.
+
+Launching the CGG profile by itself remains supported for owner-repo service
+work. In that shape the Work Design binding is absent and the projection route
+continues to deny caller authentication.
