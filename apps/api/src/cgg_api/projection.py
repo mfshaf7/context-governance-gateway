@@ -200,6 +200,20 @@ class ReceiptBoundContextProjector:
                     "may_mutate_delivery": False,
                 },
             }
+            response_fields = self._response_fields(
+                request=request,
+                caller_id=caller_id,
+                packet=packet,
+                receipt=receipt,
+            )
+            collisions = response.keys() & response_fields.keys()
+            if collisions:
+                raise self._error(
+                    "context_projection_failed",
+                    f"{self.surface_name} response fields conflict with the shared projection contract",
+                    retryable=True,
+                )
+            response.update(response_fields)
             self.store.replace(
                 request.idempotency_key,
                 {
@@ -382,6 +396,17 @@ class ReceiptBoundContextProjector:
 
     def _error(self, code: str, message: str, *, retryable: bool = False) -> ProjectionError:
         return self.error_type(code, message, retryable=retryable)
+
+    def _response_fields(
+        self,
+        *,
+        request: ProjectionRequest,
+        caller_id: str,
+        packet: dict[str, object],
+        receipt: dict[str, object],
+    ) -> dict[str, object]:
+        """Return surface-specific fields without changing the shared response contract."""
+        return {}
 
 
 def _stable_identifier(value: str) -> bool:

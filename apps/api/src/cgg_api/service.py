@@ -14,6 +14,7 @@ from context_observability import (
 )
 
 from .runtime import RuntimeSettings
+from .lifecycle import LifecycleContextProjectionRequest, LifecycleContextProjector
 from .refinement import RefinementContextProjector, RefinementProjectionRequest
 from .work_design import WorkDesignContextProjector, WorkDesignProjectionRequest
 
@@ -54,6 +55,18 @@ class ContextGatewayService:
             max_request_age_seconds=self.settings.refinement_max_request_age_seconds,
             pending_timeout_seconds=self.settings.refinement_pending_timeout_seconds,
         )
+        self.lifecycle_projector = LifecycleContextProjector(
+            store=self.settings.storage.lifecycle_projection_store(self.settings.root),
+            project_text=self.project_text,
+            load_packet=self.packet,
+            load_receipt=self.receipt,
+            allowed_callers=self.settings.lifecycle_allowed_callers,
+            caller_shared_secret=self.settings.lifecycle_caller_shared_secret,
+            max_context_bytes=self.settings.lifecycle_max_context_bytes,
+            max_budget_tokens=self.settings.lifecycle_max_budget_tokens,
+            max_request_age_seconds=self.settings.lifecycle_max_request_age_seconds,
+            pending_timeout_seconds=self.settings.lifecycle_pending_timeout_seconds,
+        )
 
     def health(self) -> dict[str, object]:
         return {
@@ -72,7 +85,13 @@ class ContextGatewayService:
                     "auth_configured": self.settings.refinement_projection_auth_configured,
                     "model_invocation": False,
                     "delivery_mutation": False,
-                }
+                },
+                "lifecycle_projection": {
+                    "auth_configured": self.settings.lifecycle_projection_auth_configured,
+                    "model_invocation": False,
+                    "lifecycle_action_selection": False,
+                    "delivery_mutation": False,
+                },
             },
         }
 
@@ -97,7 +116,13 @@ class ContextGatewayService:
                         self.settings.mutation_allowed
                         and self.settings.refinement_projection_auth_configured
                     )
-                }
+                },
+                "lifecycle_projection": {
+                    "ready": bool(
+                        self.settings.mutation_allowed
+                        and self.settings.lifecycle_projection_auth_configured
+                    )
+                },
             },
         }
 
@@ -182,6 +207,33 @@ class ContextGatewayService:
         caller_secret: str,
     ) -> dict[str, object]:
         return self.refinement_projector.read(
+            idempotency_key,
+            caller_id=caller_id,
+            caller_secret=caller_secret,
+        )
+
+    def project_lifecycle(
+        self,
+        request: LifecycleContextProjectionRequest,
+        *,
+        caller_id: str,
+        caller_secret: str,
+    ) -> dict[str, object]:
+        self._require_mutation_allowed()
+        return self.lifecycle_projector.project(
+            request,
+            caller_id=caller_id,
+            caller_secret=caller_secret,
+        )
+
+    def lifecycle_projection(
+        self,
+        idempotency_key: str,
+        *,
+        caller_id: str,
+        caller_secret: str,
+    ) -> dict[str, object]:
+        return self.lifecycle_projector.read(
             idempotency_key,
             caller_id=caller_id,
             caller_secret=caller_secret,

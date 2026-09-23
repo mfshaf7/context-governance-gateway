@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .adapters import ArtifactCustody, MetadataStore, MinioS3ArtifactCustody, PostgresPgvectorMetadataStore
 from .local import LocalContextStore
+from .lifecycle import LocalLifecycleProjectionStore
 from .refinement import LocalRefinementProjectionStore
 from .work_design import LocalWorkDesignProjectionStore
 
@@ -59,3 +60,10 @@ class StorageSettings:
                 "Refinement replay persistence requires the admitted metadata backend adapter."
             )
         return LocalRefinementProjectionStore(root)
+
+    def lifecycle_projection_store(self, root: Path) -> LocalLifecycleProjectionStore:
+        if self.metadata_backend != "local":
+            raise NotImplementedError(
+                "Lifecycle replay persistence requires the admitted metadata backend adapter."
+            )
+        return LocalLifecycleProjectionStore(root)
