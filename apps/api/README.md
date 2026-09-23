@@ -29,6 +29,18 @@ Configuration:
 - `CGG_ARTIFACT_BACKEND`: `local` or `minio-s3`.
 - `CGG_POSTGRES_DSN`: required for `postgres-pgvector`.
 - `CGG_S3_ENDPOINT_URL` and `CGG_S3_BUCKET`: required for `minio-s3`.
+- `CGG_LIFECYCLE_ALLOWED_CALLERS`: admitted lifecycle projection callers;
+  defaults to `operator-orchestration-service`.
+- `CGG_LIFECYCLE_CALLER_SHARED_SECRET`: required lifecycle caller credential;
+  unset by default so the boundary fails closed.
+- `CGG_LIFECYCLE_MAX_CONTEXT_BYTES`: canonical lifecycle source limit;
+  defaults to `262144`.
+- `CGG_LIFECYCLE_MAX_BUDGET_TOKENS`: maximum requested output budget;
+  defaults to `8000`.
+- `CGG_LIFECYCLE_MAX_REQUEST_AGE_SECONDS`: request freshness window;
+  defaults to `300`.
+- `CGG_LIFECYCLE_PENDING_TIMEOUT_SECONDS`: pending replay recovery window;
+  defaults to `120`.
 
 Primary routes:
 
@@ -36,6 +48,8 @@ Primary routes:
 - `GET /v1/context/packets/{artifact_id}`
 - `GET /v1/context/receipts/{artifact_id}`
 - `GET /v1/context/manifests/{artifact_id}`
+- `POST /v1/context/lifecycle/projections`
+- `GET /v1/context/lifecycle/projections/{idempotency_key}`
 - `GET /v1/observability/admissions`
 - `GET /v1/observability/metrics`
 - `GET /v1/observability/traces`

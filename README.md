@@ -187,6 +187,25 @@ Refinement context projection is a separate contract-admitted boundary:
 The primary contract and operator guidance is
 [`docs/operating-model/refinement-projection.md`](docs/operating-model/refinement-projection.md).
 
+Typed lifecycle context projection is implemented as a source contract:
+
+- OOS is the only default admitted caller and uses a lifecycle-specific
+  credential and replay namespace.
+- Requests bind the current lifecycle operation and state to exact typed ART,
+  repository, validation, and runtime source captures.
+- Available sources require matching content digests. Unavailable sources are
+  represented explicitly with a bounded reason instead of invented context.
+- Responses contain only redacted, budgeted content, safe source bindings,
+  explicit truncation and availability signals, and custody receipt refs.
+- CGG cannot choose or execute a lifecycle action, invoke a model, mutate ART
+  or source, or decide a raw-context fallback.
+- The source contract is not runtime activation. Later OOS, Security, and
+  Platform Landing Units own consumption, review, credential delivery, and
+  composition.
+
+The primary contract and operator guidance is
+[`docs/operating-model/lifecycle-context-projection.md`](docs/operating-model/lifecycle-context-projection.md).
+
 ## Safety Model
 
 Default posture is deny raw model projection. If detection is uncertain or

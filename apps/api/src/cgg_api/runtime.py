@@ -25,6 +25,12 @@ class RuntimeSettings:
     refinement_max_budget_tokens: int = 8_000
     refinement_max_request_age_seconds: int = 300
     refinement_pending_timeout_seconds: int = 120
+    lifecycle_allowed_callers: frozenset[str] = frozenset({"operator-orchestration-service"})
+    lifecycle_caller_shared_secret: str | None = None
+    lifecycle_max_context_bytes: int = 262_144
+    lifecycle_max_budget_tokens: int = 8_000
+    lifecycle_max_request_age_seconds: int = 300
+    lifecycle_pending_timeout_seconds: int = 120
     storage: StorageSettings = StorageSettings()
 
     @classmethod
@@ -44,6 +50,13 @@ class RuntimeSettings:
             caller.strip()
             for caller in os.environ.get(
                 "CGG_REFINEMENT_ALLOWED_CALLERS", "operator-orchestration-service"
+            ).split(",")
+            if caller.strip()
+        )
+        lifecycle_callers = frozenset(
+            caller.strip()
+            for caller in os.environ.get(
+                "CGG_LIFECYCLE_ALLOWED_CALLERS", "operator-orchestration-service"
             ).split(",")
             if caller.strip()
         )
@@ -84,6 +97,22 @@ class RuntimeSettings:
             refinement_pending_timeout_seconds=int(
                 os.environ.get("CGG_REFINEMENT_PENDING_TIMEOUT_SECONDS", "120")
             ),
+            lifecycle_allowed_callers=lifecycle_callers,
+            lifecycle_caller_shared_secret=os.environ.get(
+                "CGG_LIFECYCLE_CALLER_SHARED_SECRET"
+            ),
+            lifecycle_max_context_bytes=int(
+                os.environ.get("CGG_LIFECYCLE_MAX_CONTEXT_BYTES", "262144")
+            ),
+            lifecycle_max_budget_tokens=int(
+                os.environ.get("CGG_LIFECYCLE_MAX_BUDGET_TOKENS", "8000")
+            ),
+            lifecycle_max_request_age_seconds=int(
+                os.environ.get("CGG_LIFECYCLE_MAX_REQUEST_AGE_SECONDS", "300")
+            ),
+            lifecycle_pending_timeout_seconds=int(
+                os.environ.get("CGG_LIFECYCLE_PENDING_TIMEOUT_SECONDS", "120")
+            ),
             storage=StorageSettings.from_env(),
         )
 
@@ -100,3 +129,7 @@ class RuntimeSettings:
     @property
     def refinement_projection_auth_configured(self) -> bool:
         return bool(self.refinement_allowed_callers and self.refinement_caller_shared_secret)
+
+    @property
+    def lifecycle_projection_auth_configured(self) -> bool:
+        return bool(self.lifecycle_allowed_callers and self.lifecycle_caller_shared_secret)

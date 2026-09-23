@@ -15,6 +15,11 @@ except ImportError as exc:  # pragma: no cover - exercised only when running wit
 
 from .runtime import RuntimeSettings
 from .service import ContextGatewayService, RuntimeGateError
+from .lifecycle import (
+    LifecycleContextProjectionRequest,
+    LifecycleContextSource,
+    LifecycleProjectionError,
+)
 from .refinement import RefinementProjectionError, RefinementProjectionRequest
 from .work_design import WorkDesignProjectionError, WorkDesignProjectionRequest
 
@@ -129,6 +134,58 @@ class RefinementContextProjectionRequest(BaseModel):
     budget_tokens: int = Field(default=4_000, ge=1, le=8_000)
 
 
+class LifecycleOperatorBinding(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+
+
+class LifecycleBinding(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    operation: Literal["close", "continue", "history", "inspect", "merge", "reconstruct", "recover", "start"]
+    state: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    next_action: str | None = Field(
+        default=None, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
+    )
+
+
+class LifecycleSourceBinding(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    source_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    source_class: Literal["art", "repository", "runtime", "validation"]
+    source_ref: str = Field(min_length=1, max_length=1_024)
+    source_revision: str | None = Field(default=None, min_length=1, max_length=256)
+    captured_at: str = Field(min_length=1, max_length=64)
+    availability: Literal["available", "unavailable"]
+    content: str | None = Field(default=None, min_length=1, max_length=131_072)
+    content_digest: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
+    unavailable_reason: Literal[
+        "expired", "not_configured", "not_found", "unauthorized", "unreachable", "unsupported"
+    ] | None = None
+
+
+class LifecycleProjectionApiRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    schema_version: Literal[1]
+    request_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    correlation_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    idempotency_key: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    workflow_session_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    execution_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    delivery_id: str = Field(pattern=r"^delivery-[1-9][0-9]*$")
+    work_item_ref: str = Field(min_length=1, max_length=512)
+    landing_unit_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    operator: LifecycleOperatorBinding
+    lifecycle: LifecycleBinding
+    requested_at: str = Field(min_length=1, max_length=64)
+    sources: list[LifecycleSourceBinding] = Field(min_length=1, max_length=16)
+    sources_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    budget_tokens: int = Field(default=4_000, ge=1, le=8_000)
+
+
 def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
     service = ContextGatewayService(settings or RuntimeSettings.from_env())
     app = FastAPI(
@@ -147,6 +204,7 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
                 for prefix, label in (
                     ("/v1/context/work-design/projections", "Work Design"),
                     ("/v1/context/refinement/projections", "Refinement"),
+                    ("/v1/context/lifecycle/projections", "Lifecycle context"),
                 )
                 if request.url.path.startswith(prefix)
             ),
@@ -154,8 +212,9 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
         )
         if projection_surface:
             oversized = any(
-                error.get("type") in {"string_too_long", "less_than_equal"}
-                and tuple(error.get("loc") or ())[-1:] in {("context",), ("budget_tokens",)}
+                error.get("type") in {"string_too_long", "less_than_equal", "too_long"}
+                and tuple(error.get("loc") or ())[-1:]
+                in {("context",), ("content",), ("sources",), ("budget_tokens",)}
                 for error in exc.errors()
             )
             code = "context_projection_oversized" if oversized else "context_projection_invalid"
@@ -358,6 +417,82 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail="Refinement projection not found") from exc
         except RefinementProjectionError as exc:
+            raise HTTPException(status_code=403, detail=exc.to_dict()) from exc
+
+    @app.post("/v1/context/lifecycle/projections")
+    def project_lifecycle(
+        request: LifecycleProjectionApiRequest,
+        caller_id: str = Header(
+            alias="x-cgg-caller-id",
+            min_length=1,
+            max_length=256,
+            pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+        ),
+        caller_secret: str = Header(
+            alias="x-cgg-caller-secret", min_length=1, max_length=1024
+        ),
+    ) -> dict[str, Any]:
+        lifecycle = request.lifecycle
+        projection_request = LifecycleContextProjectionRequest(
+            request_id=request.request_id,
+            correlation_id=request.correlation_id,
+            idempotency_key=request.idempotency_key,
+            workflow_session_id=request.workflow_session_id,
+            execution_id=request.execution_id,
+            delivery_id=request.delivery_id,
+            work_item_ref=request.work_item_ref,
+            landing_unit_id=request.landing_unit_id,
+            operator_id=request.operator.id,
+            operation=lifecycle.operation,
+            lifecycle_state=lifecycle.state,
+            next_action=lifecycle.next_action,
+            requested_at=request.requested_at,
+            sources=tuple(
+                LifecycleContextSource(**source.model_dump()) for source in request.sources
+            ),
+            sources_digest=request.sources_digest,
+            budget_tokens=request.budget_tokens,
+        )
+        try:
+            return service.project_lifecycle(
+                projection_request,
+                caller_id=caller_id,
+                caller_secret=caller_secret,
+            )
+        except RuntimeGateError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except LifecycleProjectionError as exc:
+            status_code = {
+                "context_projection_unauthorized": 403,
+                "context_projection_replay_conflict": 409,
+                "context_projection_in_progress": 409,
+                "context_projection_oversized": 413,
+                "context_projection_failed": 503,
+            }.get(exc.code, 400)
+            raise HTTPException(status_code=status_code, detail=exc.to_dict()) from exc
+
+    @app.get("/v1/context/lifecycle/projections/{idempotency_key}")
+    def lifecycle_projection(
+        idempotency_key: str,
+        caller_id: str = Header(
+            alias="x-cgg-caller-id",
+            min_length=1,
+            max_length=256,
+            pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+        ),
+        caller_secret: str = Header(
+            alias="x-cgg-caller-secret", min_length=1, max_length=1024
+        ),
+    ) -> dict[str, Any]:
+        try:
+            return service.lifecycle_projection(
+                idempotency_key,
+                caller_id=caller_id,
+                caller_secret=caller_secret,
+            )
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Lifecycle projection not found") from exc
+        except LifecycleProjectionError as exc:
             raise HTTPException(status_code=403, detail=exc.to_dict()) from exc
 
     @app.get("/v1/observability/admissions")

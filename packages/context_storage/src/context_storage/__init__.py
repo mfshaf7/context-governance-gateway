@@ -3,6 +3,7 @@
 from .adapters import ArtifactCustody, MetadataStore, MinioS3ArtifactCustody, PostgresPgvectorMetadataStore
 from .config import StorageSettings
 from .local import LocalContextStore
+from .lifecycle import LocalLifecycleProjectionStore
 from .projection import LocalContextProjectionStore
 from .refinement import LocalRefinementProjectionStore
 from .work_design import LocalWorkDesignProjectionStore
@@ -11,6 +12,7 @@ __all__ = [
     "ArtifactCustody",
     "LocalContextStore",
     "LocalContextProjectionStore",
+    "LocalLifecycleProjectionStore",
     "LocalRefinementProjectionStore",
     "LocalWorkDesignProjectionStore",
     "MetadataStore",
