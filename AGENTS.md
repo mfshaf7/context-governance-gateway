@@ -3,7 +3,9 @@
 This repository owns implementation for Operational Context Governance and
 Context Admission Control.
 
-Read `README.md` first.
+Read `README.md` first, then use `docs/operating-model/README.md` as the
+primary operator index before invoking the CLI, service profile, or a context
+projection route.
 
 ## What This Repo Owns
 
