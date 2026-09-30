@@ -22,6 +22,13 @@ raw context
   -> model-safe/operator-safe context packet
 ```
 
+## Operator Surfaces
+
+Start with the [Operating Model Index](docs/operating-model/README.md). It
+routes local CLI use, the active dev-integration service lifecycle, and each
+admitted projection contract without treating CGG as workflow or approval
+authority.
+
 ## What This Repo Owns
 
 - CLI and SDK implementation for context capture and packet projection.
