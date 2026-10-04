@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "profile_id": "context-governance-gateway-delivery-art-evidence-v1",
+  "owner_repo": "context-governance-gateway",
+  "commands": [
+    {
+      "id": "owner-repository-tests",
+      "kind": "tests",
+      "name": "Context Governance Gateway test suite",
+      "executable": "python3",
+      "args": ["scripts/run_delivery_art_evidence.py", "--tests"],
+      "fidelity": "real-git",
+      "conformance_binding": "matching-fidelity",
+      "timeout_seconds": 1200
+    },
+    {
+      "id": "owner-repository-validation",
+      "kind": "validations",
+      "name": "Context Governance Gateway source and JSON validation",
+      "executable": "python3",
+      "args": ["scripts/run_delivery_art_evidence.py", "--validate"],
+      "fidelity": "filesystem",
+      "conformance_binding": "none",
+      "timeout_seconds": 600
+    },
+    {
+      "id": "source-diff-validation",
+      "kind": "validations",
+      "name": "Source diff whitespace validation",
+      "executable": "git",
+      "args": ["diff", "--check", "{{base_commit}}...{{head_commit}}"],
+      "fidelity": "real-git",
+      "conformance_binding": "none",
+      "timeout_seconds": 60
+    }
+  ]
+}
