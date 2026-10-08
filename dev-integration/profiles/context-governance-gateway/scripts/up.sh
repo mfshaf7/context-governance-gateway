@@ -7,14 +7,16 @@ require_active_profile
 need_cmd k3s
 need_cmd python3
 validate_work_design_binding_context
+validate_agent_console_binding_context
 
 ensure_state_dirs
 ensure_local_secrets
 render_runtime_manifest
 
 kubectl_cmd apply -f "${RENDERED_DIR}/cgg-runtime.yaml"
-trap remove_work_design_binding ERR
+trap 'remove_agent_console_binding; remove_work_design_binding' ERR
 reconcile_work_design_binding
+reconcile_agent_console_binding
 kubectl_cmd -n "${NAMESPACE}" rollout restart "deployment/${API_DEPLOYMENT}" >/dev/null 2>&1 || true
 kubectl_cmd -n "${NAMESPACE}" rollout restart "deployment/${WORKER_DEPLOYMENT}" >/dev/null 2>&1 || true
 wait_for_runtime_ready
@@ -29,4 +31,5 @@ printf 'worker: deployment/%s\n' "${WORKER_DEPLOYMENT}"
 printf 'postgres: svc/%s\n' "${POSTGRES_SERVICE}"
 printf 'minio: svc/%s\n' "${MINIO_SERVICE}"
 printf 'work design caller binding: %s\n' "$(work_design_binding_state)"
+printf 'agent console caller binding: %s\n' "$(agent_console_binding_state)"
 printf 'seed artifact: %s\n' "$(cat "${SEED_ARTIFACT_FILE}")"

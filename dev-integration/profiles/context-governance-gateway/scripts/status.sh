@@ -4,6 +4,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 validate_work_design_binding_context
+validate_agent_console_binding_context
 print_status
 echo
 echo "intended components:"
@@ -25,5 +26,15 @@ if is_work_design_composition && [[ "${binding_state}" != "ready" ]]; then
 fi
 if ! is_work_design_composition && [[ "${binding_state}" == "stale" ]]; then
   echo "refused: a stale Work Design caller binding exists outside its composition lifetime." >&2
+  exit 3
+fi
+
+agent_console_state="$(agent_console_binding_state)"
+if agent_console_activation_enabled && [[ "${agent_console_state}" != "ready" ]]; then
+  echo "refused: composed Agent Console caller binding is ${agent_console_state}." >&2
+  exit 3
+fi
+if ! agent_console_activation_enabled && [[ "${agent_console_state}" == "stale" ]]; then
+  echo "refused: a stale Agent Console caller binding exists outside its activation lifetime." >&2
   exit 3
 fi

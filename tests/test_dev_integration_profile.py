@@ -249,6 +249,63 @@ class DevIntegrationProfileTests(unittest.TestCase):
             self.assertEqual(result.stdout, "ready")
             self.assertNotIn(binding, result.stdout + result.stderr)
 
+    def test_agent_console_binding_requires_explicit_registered_activation(self) -> None:
+        missing = self.run_common(
+            "validate_agent_console_binding_context",
+            env_overrides={
+                "CGG_AGENT_CONSOLE_ACTIVATION_ENABLED": "true",
+                "DEVINT_COMPOSITION_ID": "refinement-catalog",
+            },
+        )
+        self.assertEqual(missing.returncode, 2)
+        self.assertIn("did not supply the exact Agent Console caller binding", missing.stderr)
+
+        outside = self.run_common(
+            "validate_agent_console_binding_context",
+            env_overrides={
+                "CGG_AGENT_CONSOLE_ACTIVATION_ENABLED": "true",
+                "CGG_AGENT_CONSOLE_ALLOWED_CALLERS": "operator-orchestration-service",
+                "CGG_AGENT_CONSOLE_CALLER_SHARED_SECRET": "composition-private-agent-console-binding",
+            },
+        )
+        self.assertEqual(outside.returncode, 2)
+        self.assertIn("requires the registered refinement-catalog composition", outside.stderr)
+
+    def test_agent_console_binding_is_ephemeral_and_not_rendered(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            capture = Path(tmp) / "secret.json"
+            binding = "composition-private-agent-console-binding"
+            env = {
+                "CAPTURE_PATH": str(capture),
+                "CGG_AGENT_CONSOLE_ACTIVATION_ENABLED": "true",
+                "CGG_AGENT_CONSOLE_ALLOWED_CALLERS": "operator-orchestration-service",
+                "CGG_AGENT_CONSOLE_CALLER_SHARED_SECRET": binding,
+                "DEVINT_COMPOSITION_ID": "refinement-catalog",
+                "DEVINT_OPERATOR": "test-operator",
+                "DEVINT_PROFILE_LIFECYCLE": "active",
+                "DEVINT_STATE_ROOT": tmp,
+            }
+            rendered = self.run_common(
+                "ensure_state_dirs\nensure_local_secrets\nrender_runtime_manifest",
+                env_overrides=env,
+            )
+            self.assertEqual(rendered.returncode, 0, rendered.stderr)
+            manifest = (Path(tmp) / "rendered" / "cgg-runtime.yaml").read_text(encoding="utf-8")
+            self.assertIn("name: CGG_AGENT_CONSOLE_CALLER_SHARED_SECRET", manifest)
+            self.assertIn("name: context-governance-gateway-agent-console-caller", manifest)
+            self.assertNotIn(binding, manifest)
+
+            projected = self.run_common(
+                'kubectl_cmd() { cat >"${CAPTURE_PATH}"; }\nreconcile_agent_console_binding',
+                env_overrides=env,
+            )
+            self.assertEqual(projected.returncode, 0, projected.stderr)
+            secret = json.loads(capture.read_text(encoding="utf-8"))
+            self.assertEqual(
+                secret["stringData"]["CGG_AGENT_CONSOLE_CALLER_SHARED_SECRET"],
+                binding,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -67,6 +67,9 @@ Current lifecycle behavior:
   Platform-projected caller binding through a dedicated ephemeral Kubernetes
   secret. A missing binding or a binding supplied outside that composition is
   denied.
+- `up` under `refinement-catalog` consumes an Agent Console caller binding only
+  when Platform also projects the explicit activation flag and exact OOS
+  allowlist. Existing or standalone runtime stays default-off.
 - `access` port-forwards the API to `http://localhost:18280`.
 - `smoke` is read-only. In `active`, it reads health, readiness, packet,
   receipt, manifest, dashboard, metrics, and trace surfaces from seeded safe
