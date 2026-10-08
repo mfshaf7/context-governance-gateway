@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .adapters import ArtifactCustody, MetadataStore, MinioS3ArtifactCustody, PostgresPgvectorMetadataStore
+from .agent_console import LocalAgentConsoleProjectionStore
 from .local import LocalContextStore
 from .lifecycle import LocalLifecycleProjectionStore
 from .refinement import LocalRefinementProjectionStore
@@ -67,3 +68,10 @@ class StorageSettings:
                 "Lifecycle replay persistence requires the admitted metadata backend adapter."
             )
         return LocalLifecycleProjectionStore(root)
+
+    def agent_console_projection_store(self, root: Path) -> LocalAgentConsoleProjectionStore:
+        if self.metadata_backend != "local":
+            raise NotImplementedError(
+                "Agent Console replay persistence requires the admitted metadata backend adapter."
+            )
+        return LocalAgentConsoleProjectionStore(root)

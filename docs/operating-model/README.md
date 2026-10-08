@@ -14,6 +14,9 @@ Use the narrowest surface that matches the task:
   Refinement advice context boundary.
 - [Lifecycle Context Projection](lifecycle-context-projection.md) for bounded
   lifecycle context admitted for OOS action selection.
+- [Agent Console Context Projection](agent-console-projection.md) for bounded,
+  receipt-bound page or workspace context admitted for OOS Agent Console
+  sessions.
 
 CGG admits and projects context. It does not approve workflow actions, mutate
 ART, invoke a model by itself, or replace OOS, WGCF, Platform, or Security.

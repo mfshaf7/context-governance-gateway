@@ -31,6 +31,12 @@ class RuntimeSettings:
     lifecycle_max_budget_tokens: int = 8_000
     lifecycle_max_request_age_seconds: int = 300
     lifecycle_pending_timeout_seconds: int = 120
+    agent_console_allowed_callers: frozenset[str] = frozenset({"operator-orchestration-service"})
+    agent_console_caller_shared_secret: str | None = None
+    agent_console_max_context_bytes: int = 131_072
+    agent_console_max_budget_tokens: int = 8_000
+    agent_console_max_request_age_seconds: int = 300
+    agent_console_pending_timeout_seconds: int = 120
     storage: StorageSettings = StorageSettings()
 
     @classmethod
@@ -57,6 +63,13 @@ class RuntimeSettings:
             caller.strip()
             for caller in os.environ.get(
                 "CGG_LIFECYCLE_ALLOWED_CALLERS", "operator-orchestration-service"
+            ).split(",")
+            if caller.strip()
+        )
+        agent_console_callers = frozenset(
+            caller.strip()
+            for caller in os.environ.get(
+                "CGG_AGENT_CONSOLE_ALLOWED_CALLERS", "operator-orchestration-service"
             ).split(",")
             if caller.strip()
         )
@@ -113,6 +126,22 @@ class RuntimeSettings:
             lifecycle_pending_timeout_seconds=int(
                 os.environ.get("CGG_LIFECYCLE_PENDING_TIMEOUT_SECONDS", "120")
             ),
+            agent_console_allowed_callers=agent_console_callers,
+            agent_console_caller_shared_secret=os.environ.get(
+                "CGG_AGENT_CONSOLE_CALLER_SHARED_SECRET"
+            ),
+            agent_console_max_context_bytes=int(
+                os.environ.get("CGG_AGENT_CONSOLE_MAX_CONTEXT_BYTES", "131072")
+            ),
+            agent_console_max_budget_tokens=int(
+                os.environ.get("CGG_AGENT_CONSOLE_MAX_BUDGET_TOKENS", "8000")
+            ),
+            agent_console_max_request_age_seconds=int(
+                os.environ.get("CGG_AGENT_CONSOLE_MAX_REQUEST_AGE_SECONDS", "300")
+            ),
+            agent_console_pending_timeout_seconds=int(
+                os.environ.get("CGG_AGENT_CONSOLE_PENDING_TIMEOUT_SECONDS", "120")
+            ),
             storage=StorageSettings.from_env(),
         )
 
@@ -133,3 +162,10 @@ class RuntimeSettings:
     @property
     def lifecycle_projection_auth_configured(self) -> bool:
         return bool(self.lifecycle_allowed_callers and self.lifecycle_caller_shared_secret)
+
+    @property
+    def agent_console_projection_auth_configured(self) -> bool:
+        return bool(
+            self.agent_console_allowed_callers
+            and self.agent_console_caller_shared_secret
+        )

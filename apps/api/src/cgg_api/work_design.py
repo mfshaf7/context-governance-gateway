@@ -74,6 +74,10 @@ class WorkDesignProjectionRequest:
     context_digest: str
     budget_tokens: int
 
+    @property
+    def source_scope(self) -> str:
+        return self.delivery_id
+
     def validate_shape(self) -> None:
         for name, value in {
             "request_id": self.request_id,

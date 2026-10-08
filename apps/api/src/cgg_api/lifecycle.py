@@ -147,6 +147,10 @@ class LifecycleContextProjectionRequest:
     budget_tokens: int
 
     @property
+    def source_scope(self) -> str:
+        return self.delivery_id
+
+    @property
     def package_ref(self) -> str:
         return self.work_item_ref
 

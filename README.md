@@ -139,7 +139,8 @@ gates.
 The current service-mode foundation adds source contracts only:
 
 - `apps/api/src/cgg_api` exposes health, readiness, text admission, packet,
-  receipt, manifest lookup, and receipt-bound Work Design projection surfaces.
+  receipt, manifest lookup, and receipt-bound Work Design, Refinement,
+  lifecycle, and Agent Console projection surfaces.
 - Mutating admission is denied unless `CGG_RUNTIME_PROFILE_STATE=active`.
 - `packages/context_storage` provides local filesystem custody plus explicit
   PostgreSQL/pgvector and MinIO/S3 integration seams.
@@ -212,6 +213,24 @@ Typed lifecycle context projection is implemented as a source contract:
 
 The primary contract and operator guidance is
 [`docs/operating-model/lifecycle-context-projection.md`](docs/operating-model/lifecycle-context-projection.md).
+
+Agent Console context projection is implemented as a separate source contract:
+
+- OOS is the only default admitted caller and uses an Agent Console-specific
+  credential and replay namespace.
+- Requests bind one exact page- or workspace-scoped source candidate to the
+  Agent Console session, invocation, operator, interaction mode, and budget.
+- Candidate content must match its SHA-256 digest and cannot be newer than the
+  request that consumes it.
+- Responses contain only redacted, budgeted content, safe source bindings, and
+  custody receipt refs; raw source content is not copied into replay bindings.
+- CGG cannot select or invoke a model, authorize an action, mutate owner state,
+  or choose a raw-context fallback.
+- The route is a source contract, not live activation. OOS, Platform, Console,
+  and Security own the remaining sequenced Landing Units.
+
+The primary contract and operator guidance is
+[`docs/operating-model/agent-console-projection.md`](docs/operating-model/agent-console-projection.md).
 
 ## Safety Model
 
