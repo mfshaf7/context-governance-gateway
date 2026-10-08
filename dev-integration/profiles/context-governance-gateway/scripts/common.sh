@@ -60,6 +60,9 @@ readonly SECRET_NAME="context-governance-gateway-local-secrets"
 readonly WORK_DESIGN_COMPOSITION_ID="work-design-advice"
 readonly WORK_DESIGN_CALLER_SECRET_NAME="context-governance-gateway-work-design-caller"
 readonly WORK_DESIGN_CALLER_SECRET_KEY="CGG_WORK_DESIGN_CALLER_SHARED_SECRET"
+readonly AGENT_CONSOLE_COMPOSITION_ID="refinement-catalog"
+readonly AGENT_CONSOLE_CALLER_SECRET_NAME="context-governance-gateway-agent-console-caller"
+readonly AGENT_CONSOLE_CALLER_SECRET_KEY="CGG_AGENT_CONSOLE_CALLER_SHARED_SECRET"
 readonly SEED_ARTIFACT_FILE="${STATE_ROOT}/seed-artifact-id.txt"
 
 kubectl_cmd() {
@@ -191,6 +194,107 @@ work_design_binding_state() {
   fi
 }
 
+is_agent_console_composition() {
+  [[ "${DEVINT_COMPOSITION_ID:-}" == "${AGENT_CONSOLE_COMPOSITION_ID}" ]]
+}
+
+agent_console_activation_enabled() {
+  [[ "${CGG_AGENT_CONSOLE_ACTIVATION_ENABLED:-false}" == "true" ]]
+}
+
+validate_agent_console_binding_context() {
+  local activation="${CGG_AGENT_CONSOLE_ACTIVATION_ENABLED:-false}"
+  local allowed_callers="${CGG_AGENT_CONSOLE_ALLOWED_CALLERS:-}"
+  local caller_secret="${CGG_AGENT_CONSOLE_CALLER_SHARED_SECRET:-}"
+
+  if [[ "${activation}" != "true" && "${activation}" != "false" ]]; then
+    echo "refused: CGG_AGENT_CONSOLE_ACTIVATION_ENABLED must be true or false." >&2
+    return 2
+  fi
+  if ! is_agent_console_composition &&
+    [[ "${activation}" == "true" || -n "${allowed_callers}" || -n "${caller_secret}" ]]; then
+    echo "refused: the Agent Console caller binding requires the registered ${AGENT_CONSOLE_COMPOSITION_ID} composition." >&2
+    return 2
+  fi
+  if ! agent_console_activation_enabled; then
+    if [[ -n "${caller_secret}" ]]; then
+      echo "refused: an Agent Console caller credential cannot be projected while activation is disabled." >&2
+      return 2
+    fi
+    return
+  fi
+  if [[ -z "${caller_secret}" || "${allowed_callers}" != "operator-orchestration-service" ]]; then
+    echo "refused: the ${AGENT_CONSOLE_COMPOSITION_ID} composition did not supply the exact Agent Console caller binding." >&2
+    return 2
+  fi
+  if [[ "${caller_secret}" == *$'\n'* || "${caller_secret}" == *$'\r'* ]]; then
+    echo "refused: the Agent Console caller binding contains an invalid newline." >&2
+    return 2
+  fi
+}
+
+remove_agent_console_binding() {
+  kubectl_cmd -n "${NAMESPACE}" delete secret "${AGENT_CONSOLE_CALLER_SECRET_NAME}" \
+    --ignore-not-found=true >/dev/null 2>&1 || true
+}
+
+reconcile_agent_console_binding() {
+  validate_agent_console_binding_context
+  if ! agent_console_activation_enabled; then
+    remove_agent_console_binding
+    return
+  fi
+
+  python3 - "${NAMESPACE}" "${AGENT_CONSOLE_CALLER_SECRET_NAME}" "${AGENT_CONSOLE_CALLER_SECRET_KEY}" <<'PY' |
+import json
+import os
+import sys
+
+namespace, secret_name, secret_key = sys.argv[1:]
+print(json.dumps({
+    "apiVersion": "v1",
+    "kind": "Secret",
+    "metadata": {"name": secret_name, "namespace": namespace},
+    "type": "Opaque",
+    "stringData": {secret_key: os.environ[secret_key]},
+}))
+PY
+    kubectl_cmd apply -f - >/dev/null
+}
+
+agent_console_binding_state() {
+  if ! is_active_profile || ! command -v k3s >/dev/null 2>&1; then
+    printf 'not-observed'
+    return
+  fi
+
+  local actual_encoded=""
+  actual_encoded="$(
+    kubectl_cmd -n "${NAMESPACE}" get secret "${AGENT_CONSOLE_CALLER_SECRET_NAME}" \
+      -o "jsonpath={.data.${AGENT_CONSOLE_CALLER_SECRET_KEY}}" 2>/dev/null || true
+  )"
+  if ! agent_console_activation_enabled; then
+    if [[ -z "${actual_encoded}" ]]; then
+      printf 'absent'
+    else
+      printf 'stale'
+    fi
+    return
+  fi
+  if [[ -z "${actual_encoded}" ]]; then
+    printf 'missing'
+    return
+  fi
+
+  local expected_encoded=""
+  expected_encoded="$(printf '%s' "${CGG_AGENT_CONSOLE_CALLER_SHARED_SECRET}" | base64 | tr -d '\n')"
+  if [[ "${actual_encoded}" == "${expected_encoded}" ]]; then
+    printf 'ready'
+  else
+    printf 'mismatch'
+  fi
+}
+
 write_status_file() {
   ensure_state_dirs
   cat >"${STATUS_FILE}" <<EOF
@@ -205,6 +309,7 @@ api service: ${API_SERVICE}
 api local port: ${ACCESS_LOCAL_PORT}
 minio local port: ${MINIO_LOCAL_PORT}
 work design caller binding: $(work_design_binding_state)
+agent console caller binding: $(agent_console_binding_state)
 EOF
 }
 
@@ -439,6 +544,14 @@ spec:
                 secretKeyRef:
                   name: ${WORK_DESIGN_CALLER_SECRET_NAME}
                   key: ${WORK_DESIGN_CALLER_SECRET_KEY}
+                  optional: true
+            - name: CGG_AGENT_CONSOLE_ALLOWED_CALLERS
+              value: "${CGG_AGENT_CONSOLE_ALLOWED_CALLERS:-operator-orchestration-service}"
+            - name: CGG_AGENT_CONSOLE_CALLER_SHARED_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ${AGENT_CONSOLE_CALLER_SECRET_NAME}
+                  key: ${AGENT_CONSOLE_CALLER_SECRET_KEY}
                   optional: true
             - name: PYTHONPATH
               value: apps/api/src:apps/cli/src:apps/dashboard/src:packages/context_adapters/src:packages/context_core/src:packages/context_observability/src:packages/context_policy/src:packages/context_storage/src
