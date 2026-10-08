@@ -1,6 +1,12 @@
 """API and service-mode contracts for Context Governance Gateway."""
 
 from .runtime import RuntimeSettings
+from .agent_console import (
+    AgentConsoleContextCandidate,
+    AgentConsoleContextProjectionRequest,
+    AgentConsoleContextProjector,
+    AgentConsoleProjectionError,
+)
 from .lifecycle import (
     LifecycleContextProjectionRequest,
     LifecycleContextProjector,
@@ -21,6 +27,10 @@ from .work_design import (
 )
 
 __all__ = [
+    "AgentConsoleContextCandidate",
+    "AgentConsoleContextProjectionRequest",
+    "AgentConsoleContextProjector",
+    "AgentConsoleProjectionError",
     "ContextGatewayService",
     "LifecycleContextProjectionRequest",
     "LifecycleContextProjector",

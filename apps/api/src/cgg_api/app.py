@@ -15,6 +15,11 @@ except ImportError as exc:  # pragma: no cover - exercised only when running wit
 
 from .runtime import RuntimeSettings
 from .service import ContextGatewayService, RuntimeGateError
+from .agent_console import (
+    AgentConsoleContextCandidate,
+    AgentConsoleContextProjectionRequest,
+    AgentConsoleProjectionError,
+)
 from .lifecycle import (
     LifecycleContextProjectionRequest,
     LifecycleContextSource,
@@ -186,6 +191,36 @@ class LifecycleProjectionApiRequest(BaseModel):
     budget_tokens: int = Field(default=4_000, ge=1, le=8_000)
 
 
+class AgentConsoleCandidateBinding(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    candidate_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    scope: Literal["page", "workspace"]
+    source_authority: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    source_mode: Literal["live", "source-projected", "synthetic"]
+    source_ref: str = Field(min_length=1, max_length=1_024)
+    source_revision: str = Field(min_length=1, max_length=256)
+    captured_at: str = Field(min_length=1, max_length=64)
+    content: str = Field(min_length=1, max_length=131_072)
+    content_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+
+
+class AgentConsoleProjectionApiRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    schema_version: Literal[1]
+    request_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    correlation_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    idempotency_key: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    session_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    invocation_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    operator_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    interaction_mode: Literal["focused", "workspace"]
+    requested_at: str = Field(min_length=1, max_length=64)
+    candidate: AgentConsoleCandidateBinding
+    budget_tokens: int = Field(default=4_000, ge=1, le=8_000)
+
+
 def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
     service = ContextGatewayService(settings or RuntimeSettings.from_env())
     app = FastAPI(
@@ -205,6 +240,7 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
                     ("/v1/context/work-design/projections", "Work Design"),
                     ("/v1/context/refinement/projections", "Refinement"),
                     ("/v1/context/lifecycle/projections", "Lifecycle context"),
+                    ("/v1/context/agent-console/projections", "Agent Console context"),
                 )
                 if request.url.path.startswith(prefix)
             ),
@@ -493,6 +529,73 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
         except FileNotFoundError as exc:
             raise HTTPException(status_code=404, detail="Lifecycle projection not found") from exc
         except LifecycleProjectionError as exc:
+            raise HTTPException(status_code=403, detail=exc.to_dict()) from exc
+
+    @app.post("/v1/context/agent-console/projections")
+    def project_agent_console(
+        request: AgentConsoleProjectionApiRequest,
+        caller_id: str = Header(
+            alias="x-cgg-caller-id",
+            min_length=1,
+            max_length=256,
+            pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+        ),
+        caller_secret: str = Header(
+            alias="x-cgg-caller-secret", min_length=1, max_length=1024
+        ),
+    ) -> dict[str, Any]:
+        projection_request = AgentConsoleContextProjectionRequest(
+            request_id=request.request_id,
+            correlation_id=request.correlation_id,
+            idempotency_key=request.idempotency_key,
+            session_id=request.session_id,
+            invocation_id=request.invocation_id,
+            operator_id=request.operator_id,
+            interaction_mode=request.interaction_mode,
+            requested_at=request.requested_at,
+            candidate=AgentConsoleContextCandidate(**request.candidate.model_dump()),
+            budget_tokens=request.budget_tokens,
+        )
+        try:
+            return service.project_agent_console(
+                projection_request,
+                caller_id=caller_id,
+                caller_secret=caller_secret,
+            )
+        except RuntimeGateError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except AgentConsoleProjectionError as exc:
+            status_code = {
+                "context_projection_unauthorized": 403,
+                "context_projection_replay_conflict": 409,
+                "context_projection_in_progress": 409,
+                "context_projection_oversized": 413,
+                "context_projection_failed": 503,
+            }.get(exc.code, 400)
+            raise HTTPException(status_code=status_code, detail=exc.to_dict()) from exc
+
+    @app.get("/v1/context/agent-console/projections/{idempotency_key}")
+    def agent_console_projection(
+        idempotency_key: str,
+        caller_id: str = Header(
+            alias="x-cgg-caller-id",
+            min_length=1,
+            max_length=256,
+            pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+        ),
+        caller_secret: str = Header(
+            alias="x-cgg-caller-secret", min_length=1, max_length=1024
+        ),
+    ) -> dict[str, Any]:
+        try:
+            return service.agent_console_projection(
+                idempotency_key,
+                caller_id=caller_id,
+                caller_secret=caller_secret,
+            )
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Agent Console projection not found") from exc
+        except AgentConsoleProjectionError as exc:
             raise HTTPException(status_code=403, detail=exc.to_dict()) from exc
 
     @app.get("/v1/observability/admissions")

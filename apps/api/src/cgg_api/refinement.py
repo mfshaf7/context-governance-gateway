@@ -63,6 +63,10 @@ class RefinementProjectionRequest:
     budget_tokens: int
 
     @property
+    def source_scope(self) -> str:
+        return self.delivery_id
+
+    @property
     def request_id(self) -> str:
         return str(self.assist_request.get("request_id") or "")
 

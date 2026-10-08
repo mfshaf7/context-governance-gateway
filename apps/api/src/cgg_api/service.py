@@ -14,6 +14,7 @@ from context_observability import (
 )
 
 from .runtime import RuntimeSettings
+from .agent_console import AgentConsoleContextProjectionRequest, AgentConsoleContextProjector
 from .lifecycle import LifecycleContextProjectionRequest, LifecycleContextProjector
 from .refinement import RefinementContextProjector, RefinementProjectionRequest
 from .work_design import WorkDesignContextProjector, WorkDesignProjectionRequest
@@ -67,6 +68,18 @@ class ContextGatewayService:
             max_request_age_seconds=self.settings.lifecycle_max_request_age_seconds,
             pending_timeout_seconds=self.settings.lifecycle_pending_timeout_seconds,
         )
+        self.agent_console_projector = AgentConsoleContextProjector(
+            store=self.settings.storage.agent_console_projection_store(self.settings.root),
+            project_text=self.project_text,
+            load_packet=self.packet,
+            load_receipt=self.receipt,
+            allowed_callers=self.settings.agent_console_allowed_callers,
+            caller_shared_secret=self.settings.agent_console_caller_shared_secret,
+            max_context_bytes=self.settings.agent_console_max_context_bytes,
+            max_budget_tokens=self.settings.agent_console_max_budget_tokens,
+            max_request_age_seconds=self.settings.agent_console_max_request_age_seconds,
+            pending_timeout_seconds=self.settings.agent_console_pending_timeout_seconds,
+        )
 
     def health(self) -> dict[str, object]:
         return {
@@ -91,6 +104,12 @@ class ContextGatewayService:
                     "model_invocation": False,
                     "lifecycle_action_selection": False,
                     "delivery_mutation": False,
+                },
+                "agent_console_projection": {
+                    "auth_configured": self.settings.agent_console_projection_auth_configured,
+                    "model_invocation": False,
+                    "action_authorization": False,
+                    "owner_mutation": False,
                 },
             },
         }
@@ -121,6 +140,12 @@ class ContextGatewayService:
                     "ready": bool(
                         self.settings.mutation_allowed
                         and self.settings.lifecycle_projection_auth_configured
+                    )
+                },
+                "agent_console_projection": {
+                    "ready": bool(
+                        self.settings.mutation_allowed
+                        and self.settings.agent_console_projection_auth_configured
                     )
                 },
             },
@@ -234,6 +259,33 @@ class ContextGatewayService:
         caller_secret: str,
     ) -> dict[str, object]:
         return self.lifecycle_projector.read(
+            idempotency_key,
+            caller_id=caller_id,
+            caller_secret=caller_secret,
+        )
+
+    def project_agent_console(
+        self,
+        request: AgentConsoleContextProjectionRequest,
+        *,
+        caller_id: str,
+        caller_secret: str,
+    ) -> dict[str, object]:
+        self._require_mutation_allowed()
+        return self.agent_console_projector.project(
+            request,
+            caller_id=caller_id,
+            caller_secret=caller_secret,
+        )
+
+    def agent_console_projection(
+        self,
+        idempotency_key: str,
+        *,
+        caller_id: str,
+        caller_secret: str,
+    ) -> dict[str, object]:
+        return self.agent_console_projector.read(
             idempotency_key,
             caller_id=caller_id,
             caller_secret=caller_secret,

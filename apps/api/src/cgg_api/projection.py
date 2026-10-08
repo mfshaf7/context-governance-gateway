@@ -12,7 +12,7 @@ class ProjectionRequest(Protocol):
     request_id: str
     correlation_id: str
     idempotency_key: str
-    delivery_id: str
+    source_scope: str
     package_ref: str
     requested_at: str
     context: str
@@ -139,7 +139,7 @@ class ReceiptBoundContextProjector:
         try:
             result = self.project_text(
                 request.canonical_projection_text(caller_id),
-                source_label=f"{self.source_label}:{request.delivery_id}:{request.package_ref}",
+                source_label=f"{self.source_label}:{request.source_scope}:{request.package_ref}",
                 profile_name="developer",
                 budget_tokens=request.budget_tokens,
                 source_type=self.source_type,
