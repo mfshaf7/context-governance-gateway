@@ -349,6 +349,40 @@ wait_for_runtime_ready() {
   kubectl_cmd -n "${NAMESPACE}" rollout status "deployment/${WORKER_DEPLOYMENT}" --timeout=600s
 }
 
+ready_pod_for_deployment() {
+  local deployment="${1:?deployment is required}"
+
+  kubectl_cmd -n "${NAMESPACE}" get pods \
+    -l "app.kubernetes.io/name=${deployment}" \
+    -o json | python3 -c '
+import json
+import sys
+
+payload = json.load(sys.stdin)
+candidates = []
+for item in payload.get("items", []):
+    metadata = item.get("metadata", {})
+    status = item.get("status", {})
+    container_statuses = status.get("containerStatuses") or []
+    if metadata.get("deletionTimestamp"):
+        continue
+    if status.get("phase") != "Running":
+        continue
+    if not container_statuses or not all(
+        entry.get("ready") and entry.get("state", {}).get("running") is not None
+        for entry in container_statuses
+    ):
+        continue
+    candidates.append((metadata.get("creationTimestamp", ""), metadata.get("name", "")))
+
+if not candidates:
+    raise SystemExit("no current ready pod found")
+
+candidates.sort(reverse=True)
+print(candidates[0][1])
+'
+}
+
 render_runtime_manifest() {
   ensure_state_dirs
   load_local_secrets
@@ -647,11 +681,13 @@ EOF
 
 seed_projection_if_needed() {
   local artifact_id=""
+  local api_pod=""
   if [[ -f "${SEED_ARTIFACT_FILE}" ]]; then
     artifact_id="$(cat "${SEED_ARTIFACT_FILE}")"
   fi
   if [[ -n "${artifact_id}" ]]; then
-    if kubectl_cmd -n "${NAMESPACE}" exec -i "deployment/${API_DEPLOYMENT}" -- \
+    api_pod="$(ready_pod_for_deployment "${API_DEPLOYMENT}")"
+    if kubectl_cmd -n "${NAMESPACE}" exec -i "pod/${api_pod}" -- \
       python - "${artifact_id}" <<'PY' >/dev/null 2>&1
 from pathlib import Path
 import os
@@ -667,8 +703,9 @@ PY
     fi
   fi
 
+  api_pod="$(ready_pod_for_deployment "${API_DEPLOYMENT}")"
   artifact_id="$(
-    kubectl_cmd -n "${NAMESPACE}" exec -i "deployment/${API_DEPLOYMENT}" -- python - <<'PY'
+    kubectl_cmd -n "${NAMESPACE}" exec -i "pod/${api_pod}" -- python - <<'PY'
 import json
 from pathlib import Path
 

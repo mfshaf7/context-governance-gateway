@@ -6,7 +6,8 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 if is_active_profile; then
   need_cmd k3s
   wait_for_runtime_ready
-  kubectl_cmd -n "${NAMESPACE}" exec -i "deployment/${API_DEPLOYMENT}" -- python - <<'PY' | tee "${SMOKE_SUMMARY}"
+  api_pod="$(ready_pod_for_deployment "${API_DEPLOYMENT}")"
+  kubectl_cmd -n "${NAMESPACE}" exec -i "pod/${api_pod}" -- python - <<'PY' | tee "${SMOKE_SUMMARY}"
 import json
 import urllib.request
 from pathlib import Path
