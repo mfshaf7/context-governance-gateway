@@ -148,6 +148,93 @@ class DevIntegrationProfileTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Missing required command: k3s", result.stderr)
 
+    def test_ready_pod_selection_ignores_terminating_and_unready_pods(self) -> None:
+        pod_list = {
+            "items": [
+                {
+                    "metadata": {
+                        "name": "api-terminating",
+                        "creationTimestamp": "2026-10-14T12:03:00Z",
+                        "deletionTimestamp": "2026-10-14T12:04:00Z",
+                    },
+                    "status": {
+                        "phase": "Running",
+                        "containerStatuses": [
+                            {"ready": True, "state": {"running": {}}}
+                        ],
+                    },
+                },
+                {
+                    "metadata": {
+                        "name": "api-current",
+                        "creationTimestamp": "2026-10-14T12:02:00Z",
+                    },
+                    "status": {
+                        "phase": "Running",
+                        "containerStatuses": [
+                            {"ready": True, "state": {"running": {}}}
+                        ],
+                    },
+                },
+                {
+                    "metadata": {
+                        "name": "api-newer-unready",
+                        "creationTimestamp": "2026-10-14T12:05:00Z",
+                    },
+                    "status": {
+                        "phase": "Running",
+                        "containerStatuses": [
+                            {"ready": False, "state": {"running": {}}}
+                        ],
+                    },
+                },
+            ]
+        }
+        result = self.run_common(
+            'kubectl_cmd() { printf \'%s\' "${POD_LIST}"; }\n'
+            "ready_pod_for_deployment context-governance-gateway-api",
+            env_overrides={"POD_LIST": json.dumps(pod_list)},
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "api-current")
+
+    def test_ready_pod_selection_fails_when_only_terminating_pod_exists(self) -> None:
+        pod_list = {
+            "items": [
+                {
+                    "metadata": {
+                        "name": "api-terminating",
+                        "creationTimestamp": "2026-10-14T12:03:00Z",
+                        "deletionTimestamp": "2026-10-14T12:04:00Z",
+                    },
+                    "status": {
+                        "phase": "Running",
+                        "containerStatuses": [
+                            {"ready": True, "state": {"running": {}}}
+                        ],
+                    },
+                }
+            ]
+        }
+        result = self.run_common(
+            'kubectl_cmd() { printf \'%s\' "${POD_LIST}"; }\n'
+            "ready_pod_for_deployment context-governance-gateway-api",
+            env_overrides={"POD_LIST": json.dumps(pod_list)},
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no current ready pod found", result.stderr)
+
+    def test_profile_exec_surfaces_use_resolved_ready_pods(self) -> None:
+        common = (PROFILE_ROOT / "scripts" / "common.sh").read_text(encoding="utf-8")
+        smoke = (PROFILE_ROOT / "scripts" / "smoke.sh").read_text(encoding="utf-8")
+
+        self.assertNotIn('exec -i "deployment/${API_DEPLOYMENT}"', common)
+        self.assertNotIn('exec -i "deployment/${API_DEPLOYMENT}"', smoke)
+        self.assertIn('exec -i "pod/${api_pod}"', common)
+        self.assertIn('exec -i "pod/${api_pod}"', smoke)
+
     def test_work_design_composition_requires_its_projected_binding(self) -> None:
         result = self.run_common(
             "validate_work_design_binding_context",
