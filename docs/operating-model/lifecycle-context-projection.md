@@ -49,6 +49,9 @@ registry owner. References are bounded, non-traversing repository references,
 not local filesystem paths or provider URLs. No to-do-specific identity or
 repository is hard-coded. Each request still binds caller, operator, workflow
 session, execution, Landing Unit, lifecycle, source digests and budget.
+Prototype slugs follow the existing Studio registry grammar: one or more
+lowercase letters/digits with optional single-hyphen-separated segments. A
+one-character slug is valid; leading, trailing or doubled hyphens are not.
 
 OOS must prove the actual canonical registry, current source, capture scope,
 eligible subject and permitted action. CGG validates and binds the supplied

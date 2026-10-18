@@ -91,8 +91,8 @@
       "required": ["kind","prototype_id","registry_ref","registry_revision","source_ref","source_revision"],
       "properties": {
         "kind": {"const":"prototype"},
-        "prototype_id": {"type":"string","pattern":"^prototype:[a-z0-9][a-z0-9-]+$","maxLength":256},
-        "registry_ref": {"type":"string","pattern":"^record://prototypes/[a-z0-9][a-z0-9-]+$","maxLength":512},
+        "prototype_id": {"type":"string","pattern":"^prototype:[a-z0-9]+(?:-[a-z0-9]+)*$","maxLength":256},
+        "registry_ref": {"type":"string","pattern":"^record://prototypes/[a-z0-9]+(?:-[a-z0-9]+)*$","maxLength":512},
         "registry_revision": {"type":"string","pattern":"^[0-9a-f]{40}$"},
         "source_ref": {"type":"string","pattern":"^repo://[a-z0-9][a-z0-9._-]*(?:/[A-Za-z0-9._-]+)*$","maxLength":1024,"not":{"pattern":"/\\.{1,2}(?:/|$)"}},
         "source_revision": {"type":"string","pattern":"^[0-9a-f]{40}$"}

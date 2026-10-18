@@ -36,7 +36,7 @@ LIFECYCLE_FAILURE_CODES = frozenset(
 _STABLE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
 _DELIVERY_ID = re.compile(r"^delivery-[1-9][0-9]*$")
 _SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
-_PROTOTYPE_ID = re.compile(r"^prototype:[a-z0-9][a-z0-9-]+$")
+_PROTOTYPE_ID = re.compile(r"^prototype:[a-z0-9]+(?:-[a-z0-9]+)*$")
 _GIT_REVISION = re.compile(r"^[0-9a-f]{40}$")
 _SOURCE_REF = re.compile(r"^repo://[a-z0-9][a-z0-9._-]*(?:/[A-Za-z0-9._-]+)*$")
 
