@@ -12,6 +12,7 @@ from .lifecycle import (
     LifecycleContextProjector,
     LifecycleContextSource,
     LifecycleProjectionError,
+    PrototypeLifecycleSubject,
     canonical_sources_digest,
 )
 from .service import ContextGatewayService, RuntimeGateError
@@ -36,6 +37,7 @@ __all__ = [
     "LifecycleContextProjector",
     "LifecycleContextSource",
     "LifecycleProjectionError",
+    "PrototypeLifecycleSubject",
     "RefinementContextProjector",
     "RefinementProjectionError",
     "RefinementProjectionRequest",

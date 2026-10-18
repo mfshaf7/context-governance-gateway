@@ -24,6 +24,7 @@ from .lifecycle import (
     LifecycleContextProjectionRequest,
     LifecycleContextSource,
     LifecycleProjectionError,
+    PrototypeLifecycleSubject,
 )
 from .refinement import RefinementProjectionError, RefinementProjectionRequest
 from .work_design import WorkDesignProjectionError, WorkDesignProjectionRequest
@@ -171,7 +172,7 @@ class LifecycleSourceBinding(BaseModel):
     ] | None = None
 
 
-class LifecycleProjectionApiRequest(BaseModel):
+class LifecycleProjectionApiRequestBase(BaseModel):
     model_config = {"extra": "forbid"}
 
     schema_version: Literal[1]
@@ -180,8 +181,6 @@ class LifecycleProjectionApiRequest(BaseModel):
     idempotency_key: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
     workflow_session_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
     execution_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
-    delivery_id: str = Field(pattern=r"^delivery-[1-9][0-9]*$")
-    work_item_ref: str = Field(min_length=1, max_length=512)
     landing_unit_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
     operator: LifecycleOperatorBinding
     lifecycle: LifecycleBinding
@@ -189,6 +188,28 @@ class LifecycleProjectionApiRequest(BaseModel):
     sources: list[LifecycleSourceBinding] = Field(min_length=1, max_length=16)
     sources_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     budget_tokens: int = Field(default=4_000, ge=1, le=8_000)
+
+
+class LifecycleProjectionApiRequest(LifecycleProjectionApiRequestBase):
+    delivery_id: str = Field(pattern=r"^delivery-[1-9][0-9]*$")
+    work_item_ref: str = Field(min_length=1, max_length=512)
+
+
+class PrototypeLifecycleSubjectBinding(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    kind: Literal["prototype"]
+    prototype_id: str = Field(pattern=r"^prototype:[a-z0-9][a-z0-9-]+$", max_length=256)
+    registry_ref: str = Field(pattern=r"^record://prototypes/[a-z0-9][a-z0-9-]+$", max_length=512)
+    registry_revision: str = Field(pattern=r"^[0-9a-f]{40}$")
+    source_ref: str = Field(
+        pattern=r"^repo://[a-z0-9][a-z0-9._-]*(?:/[A-Za-z0-9._-]+)*$", max_length=1_024
+    )
+    source_revision: str = Field(pattern=r"^[0-9a-f]{40}$")
+
+
+class PrototypeLifecycleProjectionApiRequest(LifecycleProjectionApiRequestBase):
+    subject: PrototypeLifecycleSubjectBinding
 
 
 class AgentConsoleCandidateBinding(BaseModel):
@@ -457,7 +478,7 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
 
     @app.post("/v1/context/lifecycle/projections")
     def project_lifecycle(
-        request: LifecycleProjectionApiRequest,
+        request: LifecycleProjectionApiRequest | PrototypeLifecycleProjectionApiRequest,
         caller_id: str = Header(
             alias="x-cgg-caller-id",
             min_length=1,
@@ -475,8 +496,10 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
             idempotency_key=request.idempotency_key,
             workflow_session_id=request.workflow_session_id,
             execution_id=request.execution_id,
-            delivery_id=request.delivery_id,
-            work_item_ref=request.work_item_ref,
+            delivery_id=(request.delivery_id
+                if isinstance(request, LifecycleProjectionApiRequest) else None),
+            work_item_ref=(request.work_item_ref
+                if isinstance(request, LifecycleProjectionApiRequest) else None),
             landing_unit_id=request.landing_unit_id,
             operator_id=request.operator.id,
             operation=lifecycle.operation,
@@ -488,6 +511,8 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
             ),
             sources_digest=request.sources_digest,
             budget_tokens=request.budget_tokens,
+            subject=(PrototypeLifecycleSubject(**request.subject.model_dump())
+                if isinstance(request, PrototypeLifecycleProjectionApiRequest) else None),
         )
         try:
             return service.project_lifecycle(

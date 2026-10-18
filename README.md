@@ -201,6 +201,10 @@ Typed lifecycle context projection is implemented as a source contract:
   credential and replay namespace.
 - Requests bind the current lifecycle operation and state to exact typed ART,
   repository, validation, and runtime source captures.
+- The separate closed Prototype subject binds its registry and selected source
+  revisions without inventing a Delivery work item. Existing Delivery request,
+  response and replay contracts stay unchanged. This identity projection does
+  not authorize Prototype generation or prove canonical registry currentness.
 - Available sources require matching content digests. Unavailable sources are
   represented explicitly with a bounded reason instead of invented context.
 - Responses contain only redacted, budgeted content, safe source bindings,

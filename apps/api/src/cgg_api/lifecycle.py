@@ -36,6 +36,9 @@ LIFECYCLE_FAILURE_CODES = frozenset(
 _STABLE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
 _DELIVERY_ID = re.compile(r"^delivery-[1-9][0-9]*$")
 _SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
+_PROTOTYPE_ID = re.compile(r"^prototype:[a-z0-9][a-z0-9-]+$")
+_GIT_REVISION = re.compile(r"^[0-9a-f]{40}$")
+_SOURCE_REF = re.compile(r"^repo://[a-z0-9][a-z0-9._-]*(?:/[A-Za-z0-9._-]+)*$")
 
 
 class LifecycleProjectionError(ValueError):
@@ -128,14 +131,58 @@ class LifecycleContextSource:
 
 
 @dataclass(frozen=True)
+class PrototypeLifecycleSubject:
+    """An identity binding, not registry readback or source-action authority."""
+
+    prototype_id: str
+    registry_ref: str
+    registry_revision: str
+    source_ref: str
+    source_revision: str
+    kind: str = "prototype"
+
+    def validate_shape(self) -> None:
+        if (
+            self.kind != "prototype"
+            or not isinstance(self.prototype_id, str)
+            or len(self.prototype_id) > 256
+            or not _PROTOTYPE_ID.fullmatch(self.prototype_id)
+        ):
+            raise _invalid("subject must identify a Prototype")
+        slug = self.prototype_id.removeprefix("prototype:")
+        if self.registry_ref != f"record://prototypes/{slug}":
+            raise _invalid("subject registry_ref must identify the same Prototype")
+        for revision in (self.registry_revision, self.source_revision):
+            if not isinstance(revision, str) or not _GIT_REVISION.fullmatch(revision):
+                raise _invalid("subject revisions must be exact Git commits")
+        if (
+            not isinstance(self.source_ref, str)
+            or len(self.source_ref) > 1_024
+            or not _SOURCE_REF.fullmatch(self.source_ref)
+            or any(part in {".", ".."} for part in self.source_ref[7:].split("/"))
+        ):
+            raise _invalid("subject source_ref must be a bounded repository reference")
+
+    def binding(self) -> dict[str, object]:
+        return {
+            "kind": self.kind,
+            "prototype_id": self.prototype_id,
+            "registry_ref": self.registry_ref,
+            "registry_revision": self.registry_revision,
+            "source_ref": self.source_ref,
+            "source_revision": self.source_revision,
+        }
+
+
+@dataclass(frozen=True)
 class LifecycleContextProjectionRequest:
     request_id: str
     correlation_id: str
     idempotency_key: str
     workflow_session_id: str
     execution_id: str
-    delivery_id: str
-    work_item_ref: str
+    delivery_id: str | None
+    work_item_ref: str | None
     landing_unit_id: str
     operator_id: str
     operation: str
@@ -145,13 +192,18 @@ class LifecycleContextProjectionRequest:
     sources: tuple[LifecycleContextSource, ...]
     sources_digest: str
     budget_tokens: int
+    subject: PrototypeLifecycleSubject | None = None
 
     @property
     def source_scope(self) -> str:
+        if self.subject is not None:
+            return self.subject.prototype_id
         return self.delivery_id
 
     @property
     def package_ref(self) -> str:
+        if self.subject is not None:
+            return self.subject.registry_ref
         return self.work_item_ref
 
     @property
@@ -175,10 +227,21 @@ class LifecycleContextProjectionRequest:
         }.items():
             if not _STABLE_ID.fullmatch(value):
                 raise _invalid(f"{name} must be a stable identifier")
-        if not _DELIVERY_ID.fullmatch(self.delivery_id):
-            raise _invalid("delivery_id must use the delivery-<number> form")
-        if not self.work_item_ref or len(self.work_item_ref) > 512:
-            raise _invalid("work_item_ref must be present and at most 512 characters")
+        if self.subject is not None:
+            if not isinstance(self.subject, PrototypeLifecycleSubject):
+                raise _invalid("subject must use the Prototype identity contract")
+            self.subject.validate_shape()
+            if self.delivery_id is not None or self.work_item_ref is not None:
+                raise _invalid("Prototype context cannot claim a Delivery identity")
+        else:
+            if not isinstance(self.delivery_id, str) or not _DELIVERY_ID.fullmatch(self.delivery_id):
+                raise _invalid("delivery_id must use the delivery-<number> form")
+            if (
+                not isinstance(self.work_item_ref, str)
+                or not self.work_item_ref
+                or len(self.work_item_ref) > 512
+            ):
+                raise _invalid("work_item_ref must be present and at most 512 characters")
         if self.operation not in LIFECYCLE_OPERATIONS:
             raise _invalid("operation is not admitted for lifecycle projection")
         if self.next_action is not None and not _STABLE_ID.fullmatch(self.next_action):
@@ -207,7 +270,7 @@ class LifecycleContextProjectionRequest:
             raise _invalid("budget_tokens must be positive")
 
     def binding(self, caller_id: str) -> dict[str, object]:
-        return {
+        binding = {
             "request_id": self.request_id,
             "correlation_id": self.correlation_id,
             "idempotency_key": self.idempotency_key,
@@ -227,6 +290,11 @@ class LifecycleContextProjectionRequest:
             "sources_digest": self.sources_digest,
             "budget_tokens": self.budget_tokens,
         }
+        if self.subject is not None:
+            del binding["delivery_id"]
+            del binding["work_item_ref"]
+            binding["subject"] = self.subject.binding()
+        return binding
 
     def canonical_projection_text(self, caller_id: str) -> str:
         return _canonical_json(
