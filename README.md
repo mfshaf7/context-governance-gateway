@@ -261,6 +261,14 @@ This repository is currently a governed foundation shell. Add implementation
 only through the accepted ART plan and keep source changes tied to Review
 Packet evidence when the work is source-backed.
 
+The owner [evidence profile](contracts/delivery-art-work-session/evidence-profile.json)
+exposes the existing complete test suite for both real-Git and bounded
+sandbox-runtime cases. The latter includes the actual ASGI application and
+private filesystem custody/replay tests; it is not deployed-backend evidence.
+Neither entry activates a workflow or proves a model invocation. Run
+`python3 scripts/run_delivery_art_evidence.py --tests` for the suite and
+`python3 scripts/run_delivery_art_evidence.py --validate` for source validation.
+
 ## Phase 1 CLI
 
 Install in editable mode:

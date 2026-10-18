@@ -14,6 +14,16 @@
       "timeout_seconds": 1200
     },
     {
+      "id": "owner-repository-sandbox-runtime-tests",
+      "kind": "tests",
+      "name": "Context Governance Gateway test suite in the bounded source-executor runtime",
+      "executable": "python3",
+      "args": ["scripts/run_delivery_art_evidence.py", "--tests"],
+      "fidelity": "sandbox-runtime",
+      "conformance_binding": "matching-fidelity",
+      "timeout_seconds": 1200
+    },
+    {
       "id": "owner-repository-validation",
       "kind": "validations",
       "name": "Context Governance Gateway source and JSON validation",
