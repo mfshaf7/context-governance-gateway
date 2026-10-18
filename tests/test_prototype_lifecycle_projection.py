@@ -93,6 +93,29 @@ def _validate(name, value):
 
 
 class PrototypeLifecycleProjectionTests(unittest.TestCase):
+    def test_canonical_studio_slug_grammar_accepts_short_ids_through_the_actual_projector(self):
+        for slug in ("a", "0", "sample", "sample-1"):
+            request = _request(subject=_subject(prototype_id=f"prototype:{slug}", registry_ref=f"record://prototypes/{slug}"))
+            _validate("prototype-lifecycle-context-projection-request.schema.json", _wire(request))
+            with self.subTest(slug=slug), tempfile.TemporaryDirectory() as tmp:
+                result = ContextGatewayService(_settings(Path(tmp))).project_lifecycle(request, caller_id=CALLER, caller_secret=SECRET)
+                _validate("prototype-lifecycle-context-projection-result.schema.json", result)
+                self.assertEqual(result["binding"]["subject"]["prototype_id"], f"prototype:{slug}")
+
+    def test_noncanonical_slug_grammar_is_denied_by_runtime_and_both_closed_schemas(self):
+        for slug in ("-a", "a-", "a--b", "a_b", "A"):
+            request = _request(subject=_subject(prototype_id=f"prototype:{slug}", registry_ref=f"record://prototypes/{slug}"))
+            with self.subTest(slug=slug), self.assertRaises(ValidationError):
+                _validate("prototype-lifecycle-context-projection-request.schema.json", _wire(request))
+            with self.subTest(slug=slug), tempfile.TemporaryDirectory() as tmp:
+                with self.assertRaises(LifecycleProjectionError):
+                    ContextGatewayService(_settings(Path(tmp))).project_lifecycle(request, caller_id=CALLER, caller_secret=SECRET)
+            with tempfile.TemporaryDirectory() as tmp:
+                valid = ContextGatewayService(_settings(Path(tmp))).project_lifecycle(_request(), caller_id=CALLER, caller_secret=SECRET)
+                valid["binding"]["subject"] = request.subject.binding()
+                with self.subTest(slug=slug), self.assertRaises(ValidationError):
+                    _validate("prototype-lifecycle-context-projection-result.schema.json", valid)
+
     def test_both_request_schemas_are_closed_and_cannot_mix_subjects(self):
         payload = _wire(_request())
         cases = [
