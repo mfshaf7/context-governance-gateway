@@ -253,6 +253,60 @@ class DevIntegrationProfileTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("requires the registered work-design-advice composition", result.stderr)
 
+    def test_complete_composition_requires_its_dedicated_work_design_binding(self) -> None:
+        missing = self.run_common(
+            "validate_work_design_binding_context",
+            env_overrides={"DEVINT_COMPOSITION_ID": "refinement-catalog"},
+        )
+        self.assertEqual(missing.returncode, 2)
+        self.assertIn("refinement-catalog composition did not supply", missing.stderr)
+        accepted = self.run_common(
+            "validate_work_design_binding_context",
+            env_overrides={
+                "DEVINT_COMPOSITION_ID": "refinement-catalog",
+                "CGG_WORK_DESIGN_CALLER_SHARED_SECRET": "synthetic-work-design-binding",
+            },
+        )
+        self.assertEqual(accepted.returncode, 0, accepted.stderr)
+        self.assertEqual(accepted.stdout, "")
+
+    def test_complete_composition_does_not_substitute_other_workflow_credentials(self) -> None:
+        result = self.run_common(
+            "validate_work_design_binding_context",
+            env_overrides={
+                "DEVINT_COMPOSITION_ID": "refinement-catalog",
+                "CGG_AGENT_CONSOLE_CALLER_SHARED_SECRET": "synthetic-agent-binding",
+                "CGG_REFINEMENT_CALLER_SHARED_SECRET": "synthetic-refinement-binding",
+            },
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertNotIn("synthetic-agent-binding", result.stderr)
+        self.assertNotIn("synthetic-refinement-binding", result.stderr)
+
+    def test_complete_composition_work_design_readiness_detects_missing_and_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            fake_k3s = Path(tmp) / "k3s"
+            fake_k3s.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            fake_k3s.chmod(0o700)
+            binding = "synthetic-work-design-binding"
+            encoded = subprocess.run(["base64"], input=binding, text=True,
+                                     capture_output=True, check=True).stdout.strip()
+            for observed, expected in ((encoded, "ready"), ("different", "mismatch"), ("", "missing")):
+                with self.subTest(expected=expected):
+                    result = self.run_common(
+                        f"kubectl_cmd() {{ printf '%s' '{observed}'; }}\nwork_design_binding_state",
+                        env_overrides={
+                            "DEVINT_COMPOSITION_ID": "refinement-catalog",
+                            "CGG_WORK_DESIGN_CALLER_SHARED_SECRET": binding,
+                            "DEVINT_PROFILE_LIFECYCLE": "active",
+                            "DEVINT_STATE_ROOT": tmp,
+                            "PATH": f"{tmp}:{os.environ['PATH']}",
+                        },
+                    )
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual(result.stdout, expected)
+                    self.assertNotIn(binding, result.stdout + result.stderr)
+
     def test_runtime_manifest_uses_optional_secret_reference_without_persisting_binding(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             binding = "composition-private-binding"

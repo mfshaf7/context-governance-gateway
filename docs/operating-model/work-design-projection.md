@@ -82,12 +82,14 @@ remain separate Platform and Security decisions.
 ## Dev-Integration Binding
 
 The integrated runtime is launched through the Platform-owned
-`work-design-advice` composition. Platform generates one private caller value
+`work-design-advice` composition or the complete `refinement-catalog`
+composition. Platform generates one dedicated private Work Design caller value
 for the composition lifetime and projects matching environment bindings to
 OOS and this CGG profile.
 
 CGG accepts its binding only when `DEVINT_COMPOSITION_ID` identifies that
-registered composition. The profile writes the value directly to a dedicated
+registered composition. It never substitutes a Refinement or Agent Console
+credential. The profile writes the value directly to a dedicated
 ephemeral Kubernetes secret, references it from the API deployment, reports
 only `ready`, `missing`, `mismatch`, `absent`, or `stale`, and deletes the
 secret on teardown. It does not copy the value into rendered manifests,
