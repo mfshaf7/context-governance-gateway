@@ -63,9 +63,9 @@ Current lifecycle behavior:
 - `status` reports the recorded runtime shape.
 - `up` creates the namespace, local secrets, PVCs, PostgreSQL, MinIO, API,
   worker, and API service only when the lifecycle is `active`.
-- `up` under the registered `work-design-advice` composition consumes the
+- `up` under the registered `work-design-advice` or `refinement-catalog` composition consumes the
   Platform-projected caller binding through a dedicated ephemeral Kubernetes
-  secret. A missing binding or a binding supplied outside that composition is
+  secret. A missing binding or a binding supplied outside those compositions is
   denied.
 - `up` under `refinement-catalog` consumes an Agent Console caller binding only
   when Platform also projects the explicit activation flag and exact OOS

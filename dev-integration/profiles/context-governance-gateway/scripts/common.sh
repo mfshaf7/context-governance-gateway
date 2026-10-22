@@ -112,18 +112,19 @@ is_active_profile() {
 }
 
 is_work_design_composition() {
-  [[ "${DEVINT_COMPOSITION_ID:-}" == "${WORK_DESIGN_COMPOSITION_ID}" ]]
+  [[ "${DEVINT_COMPOSITION_ID:-}" == "${WORK_DESIGN_COMPOSITION_ID}" ]] ||
+    is_agent_console_composition
 }
 
 validate_work_design_binding_context() {
   local caller_secret="${CGG_WORK_DESIGN_CALLER_SHARED_SECRET:-}"
 
   if [[ -n "${caller_secret}" ]] && ! is_work_design_composition; then
-    echo "refused: the Work Design caller binding requires the registered ${WORK_DESIGN_COMPOSITION_ID} composition." >&2
+    echo "refused: the Work Design caller binding requires the registered ${WORK_DESIGN_COMPOSITION_ID} composition or ${AGENT_CONSOLE_COMPOSITION_ID}." >&2
     return 2
   fi
   if is_work_design_composition && [[ -z "${caller_secret}" ]]; then
-    echo "refused: the ${WORK_DESIGN_COMPOSITION_ID} composition did not supply its required CGG caller binding." >&2
+    echo "refused: the ${DEVINT_COMPOSITION_ID} composition did not supply its required CGG caller binding." >&2
     return 2
   fi
   if [[ "${caller_secret}" == *$'\n'* ]]; then

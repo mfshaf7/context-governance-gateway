@@ -163,7 +163,7 @@ Work Design context projection is an admitted local dev-integration contract:
 - OOS is the only default admitted caller, and the route remains fail-closed
   until Platform supplies the caller shared secret.
 - The active profile consumes that secret only through the registered
-  `work-design-advice` composition, stores it in a dedicated ephemeral
+  `work-design-advice` or complete `refinement-catalog` composition, stores it in a dedicated ephemeral
   namespace secret, verifies the binding without disclosing it, and removes it
   during composition teardown. Standalone CGG launch does not activate the
   Work Design caller boundary.
