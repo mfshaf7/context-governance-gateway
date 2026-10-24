@@ -60,6 +60,8 @@ readonly SECRET_NAME="context-governance-gateway-local-secrets"
 readonly WORK_DESIGN_COMPOSITION_ID="work-design-advice"
 readonly WORK_DESIGN_CALLER_SECRET_NAME="context-governance-gateway-work-design-caller"
 readonly WORK_DESIGN_CALLER_SECRET_KEY="CGG_WORK_DESIGN_CALLER_SHARED_SECRET"
+readonly REFINEMENT_CALLER_SECRET_NAME="context-governance-gateway-refinement-caller"
+readonly REFINEMENT_CALLER_SECRET_KEY="CGG_REFINEMENT_CALLER_SHARED_SECRET"
 readonly AGENT_CONSOLE_COMPOSITION_ID="refinement-catalog"
 readonly AGENT_CONSOLE_CALLER_SECRET_NAME="context-governance-gateway-agent-console-caller"
 readonly AGENT_CONSOLE_CALLER_SECRET_KEY="CGG_AGENT_CONSOLE_CALLER_SHARED_SECRET"
@@ -195,6 +197,89 @@ work_design_binding_state() {
   fi
 }
 
+validate_refinement_binding_context() {
+  local caller_secret="${CGG_REFINEMENT_CALLER_SHARED_SECRET:-}"
+
+  if [[ -n "${caller_secret}" ]] && ! is_agent_console_composition; then
+    echo "refused: the Refinement caller binding requires the registered ${AGENT_CONSOLE_COMPOSITION_ID} composition." >&2
+    return 2
+  fi
+  if is_agent_console_composition && [[ -z "${caller_secret}" ]]; then
+    echo "refused: the ${DEVINT_COMPOSITION_ID} composition did not supply its required CGG caller binding." >&2
+    return 2
+  fi
+  if is_agent_console_composition && [[ "${CGG_REFINEMENT_ALLOWED_CALLERS:-}" != "operator-orchestration-service" ]]; then
+    echo "refused: the Refinement caller allowlist must match the registered OOS identity." >&2
+    return 2
+  fi
+  if [[ "${caller_secret}" == *$'\n'* || "${caller_secret}" == *$'\r'* ]]; then
+    echo "refused: the Refinement caller binding contains an invalid newline." >&2
+    return 2
+  fi
+}
+
+reconcile_refinement_binding() {
+  validate_refinement_binding_context
+  if ! is_agent_console_composition; then
+    remove_refinement_binding
+    return
+  fi
+
+  python3 - "${NAMESPACE}" "${REFINEMENT_CALLER_SECRET_NAME}" "${REFINEMENT_CALLER_SECRET_KEY}" <<'PY' |
+import json
+import os
+import sys
+
+namespace, secret_name, secret_key = sys.argv[1:]
+print(json.dumps({
+    "apiVersion": "v1",
+    "kind": "Secret",
+    "metadata": {"name": secret_name, "namespace": namespace},
+    "type": "Opaque",
+    "stringData": {secret_key: os.environ[secret_key]},
+}))
+PY
+    kubectl_cmd apply -f - >/dev/null
+}
+
+remove_refinement_binding() {
+  kubectl_cmd -n "${NAMESPACE}" delete secret "${REFINEMENT_CALLER_SECRET_NAME}" \
+    --ignore-not-found=true >/dev/null 2>&1 || true
+}
+
+refinement_binding_state() {
+  if ! is_active_profile || ! command -v k3s >/dev/null 2>&1; then
+    printf 'not-observed'
+    return
+  fi
+
+  local actual_encoded=""
+  actual_encoded="$(
+    kubectl_cmd -n "${NAMESPACE}" get secret "${REFINEMENT_CALLER_SECRET_NAME}" \
+      -o "jsonpath={.data.${REFINEMENT_CALLER_SECRET_KEY}}" 2>/dev/null || true
+  )"
+  if [[ -z "${actual_encoded}" ]]; then
+    if is_agent_console_composition; then
+      printf 'missing'
+    else
+      printf 'absent'
+    fi
+    return
+  fi
+  if ! is_agent_console_composition; then
+    printf 'stale'
+    return
+  fi
+
+  local expected_encoded=""
+  expected_encoded="$(printf '%s' "${CGG_REFINEMENT_CALLER_SHARED_SECRET}" | base64 | tr -d '\n')"
+  if [[ "${actual_encoded}" == "${expected_encoded}" ]]; then
+    printf 'ready'
+  else
+    printf 'mismatch'
+  fi
+}
+
 is_agent_console_composition() {
   [[ "${DEVINT_COMPOSITION_ID:-}" == "${AGENT_CONSOLE_COMPOSITION_ID}" ]]
 }
@@ -310,6 +395,7 @@ api service: ${API_SERVICE}
 api local port: ${ACCESS_LOCAL_PORT}
 minio local port: ${MINIO_LOCAL_PORT}
 work design caller binding: $(work_design_binding_state)
+refinement caller binding: $(refinement_binding_state)
 agent console caller binding: $(agent_console_binding_state)
 EOF
 }
@@ -579,6 +665,14 @@ spec:
                 secretKeyRef:
                   name: ${WORK_DESIGN_CALLER_SECRET_NAME}
                   key: ${WORK_DESIGN_CALLER_SECRET_KEY}
+                  optional: true
+            - name: CGG_REFINEMENT_ALLOWED_CALLERS
+              value: "${CGG_REFINEMENT_ALLOWED_CALLERS:-operator-orchestration-service}"
+            - name: CGG_REFINEMENT_CALLER_SHARED_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ${REFINEMENT_CALLER_SECRET_NAME}
+                  key: ${REFINEMENT_CALLER_SECRET_KEY}
                   optional: true
             - name: CGG_AGENT_CONSOLE_ALLOWED_CALLERS
               value: "${CGG_AGENT_CONSOLE_ALLOWED_CALLERS:-operator-orchestration-service}"

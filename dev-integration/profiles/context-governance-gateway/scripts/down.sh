@@ -14,6 +14,7 @@ need_cmd k3s
 ensure_state_dirs
 validate_work_design_binding_context
 validate_agent_console_binding_context
+validate_refinement_binding_context
 
 kubectl_cmd -n "${NAMESPACE}" scale "deployment/${API_DEPLOYMENT}" --replicas=0 >/dev/null 2>&1 || true
 kubectl_cmd -n "${NAMESPACE}" scale "deployment/${WORKER_DEPLOYMENT}" --replicas=0 >/dev/null 2>&1 || true
@@ -21,6 +22,7 @@ kubectl_cmd -n "${NAMESPACE}" scale "deployment/${POSTGRES_DEPLOYMENT}" --replic
 kubectl_cmd -n "${NAMESPACE}" scale "deployment/${MINIO_DEPLOYMENT}" --replicas=0 >/dev/null 2>&1 || true
 remove_work_design_binding
 remove_agent_console_binding
+remove_refinement_binding
 
 print_status
 echo
