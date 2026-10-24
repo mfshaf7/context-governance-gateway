@@ -14,6 +14,74 @@ PROFILE_ROOT = REPO_ROOT / "dev-integration" / "profiles" / "context-governance-
 
 
 class DevIntegrationProfileTests(unittest.TestCase):
+    def test_refinement_binding_requires_the_registered_composition(self) -> None:
+        for values, expected in [
+            ({}, 0),
+            ({"DEVINT_COMPOSITION_ID": "refinement-catalog"}, 2),
+            ({"CGG_REFINEMENT_CALLER_SHARED_SECRET": "synthetic-refinement"}, 2),
+            ({"DEVINT_COMPOSITION_ID": "refinement-catalog",
+              "CGG_WORK_DESIGN_CALLER_SHARED_SECRET": "other-boundary"}, 2),
+            ({"DEVINT_COMPOSITION_ID": "refinement-catalog",
+              "CGG_REFINEMENT_ALLOWED_CALLERS": "unexpected-caller",
+              "CGG_REFINEMENT_CALLER_SHARED_SECRET": "synthetic-refinement"}, 2),
+            ({"DEVINT_COMPOSITION_ID": "refinement-catalog",
+              "CGG_REFINEMENT_ALLOWED_CALLERS": "operator-orchestration-service",
+              "CGG_REFINEMENT_CALLER_SHARED_SECRET": "synthetic-refinement"}, 0),
+            ({"DEVINT_COMPOSITION_ID": "refinement-catalog",
+              "CGG_REFINEMENT_ALLOWED_CALLERS": "operator-orchestration-service",
+              "CGG_REFINEMENT_CALLER_SHARED_SECRET": "synthetic-refinement\r"}, 2),
+        ]:
+            with self.subTest(values=values):
+                result = self.run_common("validate_refinement_binding_context", env_overrides=values)
+                self.assertEqual(result.returncode, expected, result.stderr)
+                self.assertNotIn("synthetic-refinement", result.stdout + result.stderr)
+
+    def test_refinement_binding_is_ephemeral_and_readiness_compares_its_own_secret(self) -> None:
+        import base64
+        with tempfile.TemporaryDirectory() as tmp:
+            capture = Path(tmp) / "secret.json"
+            fake_k3s = Path(tmp) / "k3s"
+            fake_k3s.write_text("#!/bin/sh\nexit 0\n")
+            fake_k3s.chmod(0o755)
+            secret = "synthetic-refinement-boundary"
+            env = {"DEVINT_COMPOSITION_ID": "refinement-catalog",
+                   "CGG_REFINEMENT_ALLOWED_CALLERS": "operator-orchestration-service",
+                   "CGG_REFINEMENT_CALLER_SHARED_SECRET": secret,
+                   "DEVINT_STATE_ROOT": tmp, "CAPTURE_PATH": str(capture),
+                   "DEVINT_PROFILE_LIFECYCLE": "active",
+                   "PATH": f"{tmp}:{os.environ['PATH']}"}
+            result = self.run_common(
+                'kubectl_cmd() { cat >"${CAPTURE_PATH}"; }\nreconcile_refinement_binding',
+                env_overrides=env)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            data = json.loads(capture.read_text())
+            self.assertEqual(data["stringData"], {"CGG_REFINEMENT_CALLER_SHARED_SECRET": secret})
+            self.assertEqual(data["metadata"]["name"], "context-governance-gateway-refinement-caller")
+            self.assertNotIn(secret, result.stdout + result.stderr)
+            for observed, expected in [("", "missing"), ("different", "mismatch"),
+                (base64.b64encode(secret.encode()).decode(), "ready")]:
+                result = self.run_common(
+                    f"kubectl_cmd() {{ printf '%s' '{observed}'; }}\nrefinement_binding_state",
+                    env_overrides=env)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, expected)
+                self.assertNotIn(secret, result.stdout + result.stderr)
+            result = self.run_common(
+                "ensure_state_dirs\nensure_local_secrets\nrender_runtime_manifest", env_overrides=env)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest = (Path(tmp) / "rendered/cgg-runtime.yaml").read_text()
+            self.assertIn("name: CGG_REFINEMENT_CALLER_SHARED_SECRET", manifest)
+            self.assertIn("name: context-governance-gateway-refinement-caller", manifest)
+            self.assertNotIn(secret, manifest + (Path(tmp) / "local-secrets.env").read_text())
+            cleanup = self.run_common(
+                'kubectl_cmd() { printf "%s\\n" "$*" >"${CAPTURE_PATH}"; }\nremove_refinement_binding',
+                env_overrides=env)
+            self.assertEqual(cleanup.returncode, 0, cleanup.stderr)
+            # The owner suppresses kubectl output, including secret data.
+            self.assertEqual(cleanup.stdout, "")
+            self.assertIn("delete secret context-governance-gateway-refinement-caller", capture.read_text())
+            self.assertNotIn(secret, capture.read_text())
+
     def run_common(
         self,
         script: str,

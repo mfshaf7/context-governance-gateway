@@ -67,6 +67,12 @@ Current lifecycle behavior:
   Platform-projected caller binding through a dedicated ephemeral Kubernetes
   secret. A missing binding or a binding supplied outside those compositions is
   denied.
+- `up` under `refinement-catalog` also requires its dedicated Refinement caller
+  credential and exact OOS allowlist. The credential is delivered only through
+  the composition-lifetime Kubernetes secret, separately from Work Design and
+  Agent Console. Status reports missing or mismatched bindings without exposing
+  their values. Standalone runtime does not admit Refinement callers; `down`
+  and failed activation remove this ephemeral binding.
 - `up` under `refinement-catalog` consumes an Agent Console caller binding only
   when Platform also projects the explicit activation flag and exact OOS
   allowlist. Existing or standalone runtime stays default-off.
