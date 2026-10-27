@@ -72,7 +72,14 @@ sandbox proof.
 
 - If the profile is not `active`, `up` and `access` refuse to run.
 - If smoke finds no seed packet, run `up` first.
-- If readiness fails, inspect the API pod install log at
-  `/tmp/cgg-pip-install.log` inside the pod before changing manifests.
+- The API has a bounded five-minute startup probe while its existing dependency
+  installation and server startup complete. Kubernetes defers readiness and
+  liveness checks until startup succeeds; their normal endpoints and thresholds
+  are unchanged. The existing API rollout wait remains ten minutes.
+- If startup or readiness fails, inspect current and previous API container logs
+  through `kubectl logs` before changing source or manifests. Distinguish a slow
+  install, package-index failure, application failure and a liveness restart.
+  Startup timeout remains a failure; do not mark the API ready or relax its
+  canonical readiness, caller or context controls to conceal it.
 - If raw context appears in packet, dashboard, metric, or trace output, treat it
   as a security blocker before continuing activation.

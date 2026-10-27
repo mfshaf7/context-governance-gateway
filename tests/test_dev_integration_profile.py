@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import stat
 import subprocess
 import tempfile
@@ -97,6 +98,33 @@ class DevIntegrationProfileTests(unittest.TestCase):
             text=True,
             capture_output=True,
         )
+
+    def test_rendered_api_startup_is_bounded_before_normal_health_probes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_common(
+                "ensure_state_dirs\nensure_local_secrets\nrender_runtime_manifest",
+                env_overrides={"DEVINT_STATE_ROOT": tmp, "DEVINT_OPERATOR": "test-operator"},
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest = (Path(tmp) / "rendered/cgg-runtime.yaml").read_text()
+            api = manifest.split("        - name: api\n", 1)[1].split("          volumeMounts:", 1)[0]
+            startup, health = api.split("          startupProbe:", 1)[1].split("          readinessProbe:", 1)
+            self.assertIn("path: /healthz", startup)
+            self.assertIn("port: http", startup)
+            settings = {name: int(value) for name, value in re.findall(r"^\s+(periodSeconds|timeoutSeconds|failureThreshold): (\d+)$", startup, re.M)}
+            budget = settings["periodSeconds"] * settings["failureThreshold"]
+            self.assertEqual(budget, 300, "installation gets a bounded five-minute startup window")
+            self.assertEqual(settings["timeoutSeconds"], 1)
+            self.assertLess(budget, 600, "startup must fit within the existing API rollout wait")
+            readiness, liveness = health.split("          livenessProbe:", 1)
+            self.assertIn("path: /readyz", readiness)
+            self.assertIn("initialDelaySeconds: 10", readiness)
+            self.assertIn("periodSeconds: 10", readiness)
+            self.assertIn("path: /healthz", liveness)
+            self.assertIn("initialDelaySeconds: 15", liveness)
+            self.assertIn("periodSeconds: 20", liveness)
+            self.assertIn("python -m pip install", api)
+            self.assertIn("exec python -m uvicorn", api)
 
     def test_profile_commands_exist_and_are_executable(self) -> None:
         expected = {
