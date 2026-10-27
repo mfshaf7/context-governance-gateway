@@ -687,6 +687,13 @@ spec:
           ports:
             - containerPort: 8080
               name: http
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 1
+            failureThreshold: 60
           readinessProbe:
             httpGet:
               path: /readyz
