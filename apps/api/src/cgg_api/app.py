@@ -110,6 +110,12 @@ class RefinementTargetBinding(BaseModel):
     allowed_values: list[str]
 
 
+class RefinementConversationTurn(BaseModel):
+    model_config = {"extra": "forbid"}
+    role: Literal["operator", "advisor"]
+    text: str = Field(max_length=12000)
+
+
 class RefinementAssistRequest(BaseModel):
     model_config = {"extra": "forbid"}
 
@@ -125,6 +131,7 @@ class RefinementAssistRequest(BaseModel):
     packet: RefinementPacketBinding
     target: RefinementTargetBinding
     operator_prompt: str = Field(min_length=1, max_length=4_000)
+    conversation: list[RefinementConversationTurn] | None = Field(default=None, max_length=8)
 
 
 class RefinementContextProjectionRequest(BaseModel):
@@ -137,6 +144,7 @@ class RefinementContextProjectionRequest(BaseModel):
     requested_at: str = Field(min_length=1, max_length=64)
     assist_request: RefinementAssistRequest
     assist_request_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    work_context: dict[str, Any] | None = None
     budget_tokens: int = Field(default=4_000, ge=1, le=8_000)
 
 
@@ -432,6 +440,7 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
             requested_at=request.requested_at,
             assist_request=request.assist_request.model_dump(exclude_none=True),
             assist_request_digest=request.assist_request_digest,
+            work_context=request.work_context,
             budget_tokens=request.budget_tokens,
         )
         try:

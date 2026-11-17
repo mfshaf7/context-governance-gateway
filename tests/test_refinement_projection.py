@@ -92,6 +92,48 @@ def _request(**overrides: object) -> RefinementProjectionRequest:
 
 
 class RefinementProjectionTests(unittest.TestCase):
+    def test_owner_work_context_is_redacted_bound_and_replay_sensitive(self) -> None:
+        assist = _assist_request()
+        work = {key: assist[key] for key in ("package_ref", "source_ref", "source_revision")}
+        work.update(source_work_design_receipt_id=assist["packet"]["source_work_design_receipt_id"],
+                    coverage="Current canonical selected nodes and ancestors; no separate diagram contents.",
+                    nodes=[{"id": key, "kind": "Feature", "title": "Accepted outcome", "description": "Architectural rule: local data. API_TOKEN=secret-value"}
+                           for key in assist["target"]["selected_node_ids"]])
+        with tempfile.TemporaryDirectory() as tmp:
+            service = ContextGatewayService(RuntimeSettings(root=Path(tmp), runtime_profile_state="active",
+                refinement_caller_shared_secret=CALLER_SECRET))
+            request = _request(work_context=work)
+            result = service.refinement_projector.project(request,
+                caller_id="operator-orchestration-service", caller_secret=CALLER_SECRET, now=NOW)
+            _validate_schema("refinement-context-projection-result.schema.json", result)
+            self.assertIn("Architectural rule: local data", result["content"])
+            self.assertNotIn("secret-value", result["content"])
+            self.assertEqual(result["binding"]["context_digest"], _digest(request.context))
+            self.assertNotEqual(result["binding"]["context_digest"], request.assist_request_digest)
+            changed = json.loads(json.dumps(work))
+            changed["nodes"][0]["description"] = "Different accepted constraint"
+            with self.assertRaises(RefinementProjectionError) as caught:
+                service.refinement_projector.project(replace(request, work_context=changed),
+                    caller_id="operator-orchestration-service", caller_secret=CALLER_SECRET, now=NOW)
+            self.assertEqual(caught.exception.code, "context_projection_replay_conflict")
+        for changed in [{**work, "source_ref": "another-project"}, {**work, "nodes": work["nodes"] * 2},
+                        {**work, "nodes": []}, {**work, "execute": "forbidden"}]:
+            with self.assertRaises(RefinementProjectionError):
+                _request(work_context=changed).validate_shape()
+
+    def test_budget_trimmed_selected_field_does_not_become_ready_advice_context(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            service = ContextGatewayService(RuntimeSettings(root=Path(tmp), runtime_profile_state="active",
+                refinement_caller_shared_secret=CALLER_SECRET))
+            with self.assertRaises(RefinementProjectionError) as caught:
+                service.refinement_projector.project(_request(budget_tokens=10),
+                    caller_id="operator-orchestration-service", caller_secret=CALLER_SECRET, now=NOW)
+            self.assertEqual(caught.exception.code, "context_projection_oversized")
+            complete = service.refinement_projector.project(_request(idempotency_key="complete-field"),
+                caller_id="operator-orchestration-service", caller_secret=CALLER_SECRET, now=NOW)
+            self.assertEqual(complete["status"], "ready")
+            self.assertIn("Describe verifiable entry conditions", complete["content"])
+
     def test_projects_receipt_bound_model_safe_refinement_context(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             service = ContextGatewayService(

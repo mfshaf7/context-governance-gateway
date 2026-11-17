@@ -62,6 +62,26 @@ def _request(**overrides: object) -> WorkDesignProjectionRequest:
 
 
 class WorkDesignProjectionTests(unittest.TestCase):
+    def test_selected_draft_requires_complete_context_but_ordinary_summary_can_be_bounded(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            service = ContextGatewayService(RuntimeSettings(root=Path(tmp), runtime_profile_state="active",
+                work_design_caller_shared_secret=CALLER_SECRET))
+            context = json.dumps({"context_draft": {"note": "Architecture evidence. " * 100 + "TAIL_CONTEXT_BOUNDARY"},
+                "draft_scope": {"scope": {"role": "work-design-context", "ref": "selected-diagram", "fields": []}}})
+            for attempt in range(2):
+                with self.assertRaises(WorkDesignProjectionError) as caught:
+                    service.work_design_projector.project(_request(context=context, budget_tokens=10),
+                        caller_id="operator-orchestration-service", caller_secret=CALLER_SECRET, now=NOW)
+                self.assertEqual(caught.exception.code, "context_projection_oversized")
+            complete = service.work_design_projector.project(_request(context=context, idempotency_key="complete-draft"),
+                caller_id="operator-orchestration-service", caller_secret=CALLER_SECRET, now=NOW)
+            self.assertEqual(complete["status"], "ready")
+            self.assertIn("TAIL_CONTEXT_BOUNDARY", complete["content"])
+            summary = service.work_design_projector.project(_request(context="Overview context. " * 100,
+                idempotency_key="bounded-overview", budget_tokens=10),
+                caller_id="operator-orchestration-service", caller_secret=CALLER_SECRET, now=NOW)
+            self.assertEqual(summary["status"], "ready")
+
     def test_projects_receipt_bound_model_safe_context(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             service = ContextGatewayService(
