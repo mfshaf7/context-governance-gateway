@@ -60,7 +60,7 @@
     "requested_at": {"type": "string", "format": "date-time", "maxLength": 64},
     "context": {"type": "string", "minLength": 1, "maxLength": 262144},
     "context_digest": {"$ref": "#/$defs/sha256"},
-    "budget_tokens": {"type": "integer", "minimum": 1, "maximum": 8000}
+    "budget_tokens": {"type": "integer", "minimum": 1, "maximum": 32000}
   },
   "$defs": {
     "stableId": {

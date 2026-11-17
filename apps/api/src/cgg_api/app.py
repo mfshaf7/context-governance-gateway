@@ -71,7 +71,7 @@ class WorkDesignContextProjectionRequest(BaseModel):
     requested_at: str = Field(min_length=1, max_length=64)
     context: str = Field(min_length=1, max_length=262_144)
     context_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
-    budget_tokens: int = Field(default=4_000, ge=1, le=8_000)
+    budget_tokens: int = Field(default=4_000, ge=1, le=32_000)
 
 
 class RefinementOperatorBinding(BaseModel):

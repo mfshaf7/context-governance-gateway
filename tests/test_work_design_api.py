@@ -61,6 +61,26 @@ def _payload(**overrides: object) -> dict[str, object]:
 
 
 class WorkDesignApiTests(unittest.IsolatedAsyncioTestCase):
+    async def test_complete_architecture_exceeds_old_budget_without_losing_its_tail(self) -> None:
+        context = json.dumps({"draft_scope": {"architecture": "retained responsibility and interaction " * 1800,
+                                             "tail": "FINAL_VIEW_MUST_REACH_THE_ADVISOR"}})
+        payload = _payload(context=context, budget_tokens=32_000)
+        _validate_request_schema(payload)
+        with tempfile.TemporaryDirectory() as tmp:
+            settings = RuntimeSettings(root=Path(tmp), runtime_profile_state="active",
+                                       work_design_caller_shared_secret=CALLER_SECRET)
+            self.assertEqual(settings.agent_console_max_budget_tokens, 8_000)
+            self.assertEqual(settings.refinement_max_budget_tokens, 8_000)
+            headers = {"x-cgg-caller-id": "operator-orchestration-service", "x-cgg-caller-secret": CALLER_SECRET}
+            async with AsyncClient(transport=ASGITransport(app=create_app(settings)), base_url="http://test") as client:
+                complete = await client.post("/v1/context/work-design/projections", json=payload, headers=headers)
+                limited = await client.post("/v1/context/work-design/projections", json={**payload,
+                    "idempotency_key": "smaller-architecture-budget", "budget_tokens": 8_000}, headers=headers)
+            self.assertEqual(complete.status_code, 200, complete.text)
+            self.assertIn("FINAL_VIEW_MUST_REACH_THE_ADVISOR", complete.json()["content"])
+            self.assertEqual(limited.status_code, 413, limited.text)
+            self.assertEqual(limited.json()["detail"]["code"], "context_projection_oversized")
+
     async def test_api_projects_and_replays_receipt_bound_context(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             app = create_app(
