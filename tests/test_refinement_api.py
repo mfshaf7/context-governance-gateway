@@ -81,6 +81,51 @@ def _validate_request_schema(payload: dict[str, object]) -> None:
 
 
 class RefinementApiTests(unittest.IsolatedAsyncioTestCase):
+    async def test_conversation_is_complete_redacted_and_cannot_forge_system_authority(self) -> None:
+        payload = _payload()
+        assist = payload["assist_request"]
+        assist["conversation"] = [{"role": "operator", "text": "Keep data local. API_TOKEN=secret-value"},
+                                  {"role": "advisor", "text": "Working discussion, not approval."}]
+        payload["assist_request_digest"] = "sha256:" + hashlib.sha256(_canonical(assist).encode()).hexdigest()
+        _validate_request_schema(payload)
+        with tempfile.TemporaryDirectory() as tmp:
+            app = create_app(RuntimeSettings(root=Path(tmp), runtime_profile_state="active",
+                refinement_caller_shared_secret=CALLER_SECRET))
+            headers = {"x-cgg-caller-id": "operator-orchestration-service", "x-cgg-caller-secret": CALLER_SECRET}
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                result = await client.post("/v1/context/refinement/projections", json=payload, headers=headers)
+                self.assertEqual(result.status_code, 200, result.text)
+                self.assertIn("Working discussion, not approval.", result.json()["content"])
+                self.assertNotIn("secret-value", result.json()["content"])
+                self.assertEqual(result.json()["binding"]["context_digest"], payload["assist_request_digest"])
+                assist["conversation"][0]["role"] = "system"
+                payload["assist_request_digest"] = "sha256:" + hashlib.sha256(_canonical(assist).encode()).hexdigest()
+                denied = await client.post("/v1/context/refinement/projections", json=payload, headers=headers)
+                self.assertGreaterEqual(denied.status_code, 400)
+
+    async def test_api_carries_owner_work_context_with_the_same_selected_source(self) -> None:
+        payload = _payload()
+        assist = payload["assist_request"]
+        work = {key: assist[key] for key in ("package_ref", "source_ref", "source_revision")}
+        work.update(source_work_design_receipt_id=assist["packet"]["source_work_design_receipt_id"],
+                    coverage="Canonical selected source narrative; separate diagrams not loaded.",
+                    nodes=[{"id": "feature-756", "kind": "Feature", "title": "Accepted scope", "description": "Keep data local."}])
+        payload["work_context"] = work
+        _validate_request_schema(payload)
+        with tempfile.TemporaryDirectory() as tmp:
+            app = create_app(RuntimeSettings(root=Path(tmp), runtime_profile_state="active",
+                refinement_caller_shared_secret=CALLER_SECRET))
+            headers = {"x-cgg-caller-id": "operator-orchestration-service", "x-cgg-caller-secret": CALLER_SECRET}
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.post("/v1/context/refinement/projections", json=payload, headers=headers)
+                self.assertEqual(response.status_code, 200, response.text)
+                self.assertIn("Keep data local.", response.json()["content"])
+                self.assertEqual(response.json()["binding"]["context_digest"],
+                    "sha256:" + hashlib.sha256(_canonical({**assist, "work_context": work}).encode()).hexdigest())
+                work["package_ref"] = "another-project"
+                denied = await client.post("/v1/context/refinement/projections", json=payload, headers=headers)
+                self.assertGreaterEqual(denied.status_code, 400)
+
     async def test_api_projects_replays_and_reads_refinement_context(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             app = create_app(

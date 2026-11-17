@@ -212,6 +212,19 @@ class WorkDesignContextProjector(ReceiptBoundContextProjector):
             error_type=WorkDesignProjectionError,
         )
 
+    def _response_fields(self, *, request, caller_id, packet, receipt):
+        try:
+            context = json.loads(request.context)
+        except json.JSONDecodeError:
+            context = None
+        has_draft = isinstance(context, dict) and context.get("draft_scope") is not None
+        if has_draft and (packet.get("budget") or {}).get("truncated") is True:
+            raise WorkDesignProjectionError(
+                "context_projection_oversized",
+                "The selected Work Design draft was shortened by the context budget. Select a smaller scope; no complete draft projection was issued.",
+            )
+        return {}
+
 
 def _canonical_json(value: dict[str, object]) -> str:
     return json.dumps(value, ensure_ascii=True, separators=(",", ":"), sort_keys=True)

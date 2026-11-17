@@ -1,5 +1,10 @@
 # Refinement Context Projection
 
+Selected metadata advice requires complete admitted field context. If budgeting
+shortens that context, CGG returns `context_projection_oversized` rather than a
+ready partial field projection. Narrow the selected context before a new request;
+this does not raise the budget, expose raw data or grant model/action authority.
+
 ## Purpose
 
 CGG projects the exact context needed by OOS for Refinement metadata advice.
@@ -27,6 +32,18 @@ projection receipt references. The response authority flags remain false for
 model invocation, suggestion approval, and Delivery mutation.
 
 ## Admission
+
+The approved unpublished continuity extension accepts optional owner-supplied
+`work_context` beside the unchanged `assist_request`. It contains canonical
+selected-node/ancestor narratives and explicit coverage, bound to that same
+package, source revision and Work Design receipt. It supplies no read or edit
+authority. CGG validates source/selection identity, admits/redacts the complete
+content and binds it into `context_digest` and the projection request digest.
+`assist_request_digest` continues to bind only the original field request.
+Absent optional context preserves the previous wire and digest behavior.
+Malformed, foreign, duplicate-node or budget-shortened input is denied; no
+reference fetch or document retrieval is added. Deploy before the dependent
+OOS consumer through the existing reviewed complete-runtime path.
 
 The boundary is fail-closed unless all of these are true:
 

@@ -61,6 +61,7 @@ class RefinementProjectionRequest:
     assist_request: dict[str, object]
     assist_request_digest: str
     budget_tokens: int
+    work_context: dict[str, object] | None = None
 
     @property
     def source_scope(self) -> str:
@@ -84,14 +85,14 @@ class RefinementProjectionRequest:
 
     @property
     def context(self) -> str:
-        return _canonical_json(self.assist_request)
+        return _canonical_json({**self.assist_request, **({"work_context": self.work_context} if self.work_context is not None else {})})
 
     @property
     def context_digest(self) -> str:
-        return self.assist_request_digest
+        return _digest_text(self.context)
 
     def validate_shape(self) -> None:
-        if set(self.assist_request) != {
+        if set(self.assist_request) - {"conversation"} != {
             "schema_version",
             "request_id",
             "correlation_id",
@@ -109,6 +110,11 @@ class RefinementProjectionRequest:
                 "context_projection_invalid",
                 "assist_request must match the admitted Refinement request shape",
             )
+        if "conversation" in self.assist_request:
+            turns = self.assist_request["conversation"]
+            if not isinstance(turns, list) or len(turns) > 8 or any(not isinstance(turn, dict) or set(turn) != {"role", "text"}
+                    or turn["role"] not in ("operator", "advisor") or not isinstance(turn["text"], str) or len(turn["text"]) > 12000 for turn in turns):
+                raise RefinementProjectionError("context_projection_invalid", "Conversation must retain complete bounded working messages")
         for name, value in {
             "request_id": self.request_id,
             "correlation_id": self.correlation_id,
@@ -237,7 +243,7 @@ class RefinementProjectionRequest:
             raise RefinementProjectionError(
                 "context_projection_invalid", "assist_request_digest must be a sha256 digest"
             )
-        if self.assist_request_digest != _digest_text(self.context):
+        if self.assist_request_digest != _digest_text(_canonical_json(self.assist_request)):
             raise RefinementProjectionError(
                 "context_projection_invalid",
                 "assist_request_digest does not match the canonical assist request",
@@ -247,6 +253,8 @@ class RefinementProjectionRequest:
                 "context_projection_invalid", "budget_tokens must be positive"
             )
         _parse_timestamp(self.requested_at)
+        if self.work_context is not None:
+            self._validate_work_context()
 
     def binding(self, caller_id: str) -> dict[str, object]:
         task = self._object("task")
@@ -282,6 +290,7 @@ class RefinementProjectionRequest:
             {
                 "binding": self.binding(caller_id),
                 "refinement_context": self.assist_request,
+                **({"work_context": self.work_context} if self.work_context is not None else {}),
             }
         )
 
@@ -295,6 +304,25 @@ class RefinementProjectionRequest:
                 "context_projection_invalid", f"assist_request.{name} must be an object"
             )
         return value
+
+    def _validate_work_context(self) -> None:
+        value = self.work_context
+        valid = isinstance(value, dict) and set(value) == {"package_ref", "source_ref", "source_revision", "source_work_design_receipt_id", "nodes", "coverage"}
+        if valid:
+            valid = all(value[key] == self.assist_request.get(key) for key in ("package_ref", "source_ref", "source_revision"))
+            valid = valid and value["source_work_design_receipt_id"] == (self.assist_request.get("packet") or {}).get("source_work_design_receipt_id")
+            valid = valid and isinstance(value["coverage"], str) and bool(value["coverage"].strip()) and isinstance(value["nodes"], list) and bool(value["nodes"])
+        if valid:
+            nodes = value["nodes"]
+            valid = all(isinstance(node, dict) and set(node) == {"id", "kind", "title", "description"}
+                        and all(isinstance(node[key], str) for key in node)
+                        and bool(_STABLE_ID.fullmatch(node["id"])) and bool(node["title"].strip())
+                        for node in nodes)
+            if valid:
+                ids = [node["id"] for node in nodes]
+                valid = len(ids) == len(set(ids)) and set((self.assist_request.get("target") or {}).get("selected_node_ids", [])).issubset(ids)
+        if not valid:
+            raise RefinementProjectionError("context_projection_invalid", "Work context must bind the same source, receipt and selected nodes without duplicate or foreign fields")
 
 
 class RefinementContextProjector(ReceiptBoundContextProjector):
@@ -328,6 +356,14 @@ class RefinementContextProjector(ReceiptBoundContextProjector):
             source_type="refinement-assist",
             error_type=RefinementProjectionError,
         )
+
+    def _response_fields(self, *, request, caller_id, packet, receipt):
+        if (packet.get("budget") or {}).get("truncated") is True:
+            raise RefinementProjectionError(
+                "context_projection_oversized",
+                "The selected Refinement field context was shortened by the context budget. Select a smaller scope; no complete field projection was issued.",
+            )
+        return {}
 
 
 def _canonical_json(value: dict[str, object]) -> str:

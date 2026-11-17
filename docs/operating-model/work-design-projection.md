@@ -34,6 +34,22 @@ result contains model-safe content plus packet, redaction-receipt, and
 projection-receipt references. Those references bind the original caller and
 task metadata without exposing raw artifact paths.
 
+When the submitted context includes an editable `draft_scope`, a packet shortened
+by its token budget cannot become a ready projection. CGG returns the existing
+`context_projection_oversized` denial so the operator can narrow the selected
+scope. The original protected artifact and denial evidence remain retained;
+the workflow must not treat a partial excerpt as the complete selected draft.
+Ordinary advice without a draft scope retains its bounded-summary behavior.
+
+This is operator-approved maintenance Landing Unit
+`maintenance-advisor-context-completeness-20261111` in the Console advisor preview
+batch. It changes only existing projection denial behavior and preserves the
+request/result schemas and caller boundary. Owner proof is in
+`tests/test_work_design_projection.py` and `tests/test_refinement_projection.py`,
+including complete-context success, truncated-context denial, replay and ordinary
+summary compatibility. Paired OOS/Console source, fresh composed Security review
+and normal Platform activation are required before operating qualification.
+
 ## Replay And Recovery
 
 - The first admitted request reserves its idempotency key before projection.
