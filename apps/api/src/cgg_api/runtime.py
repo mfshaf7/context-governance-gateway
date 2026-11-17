@@ -16,7 +16,7 @@ class RuntimeSettings:
     work_design_allowed_callers: frozenset[str] = frozenset({"operator-orchestration-service"})
     work_design_caller_shared_secret: str | None = None
     work_design_max_context_bytes: int = 262_144
-    work_design_max_budget_tokens: int = 8_000
+    work_design_max_budget_tokens: int = 32_000
     work_design_max_request_age_seconds: int = 300
     work_design_pending_timeout_seconds: int = 120
     refinement_allowed_callers: frozenset[str] = frozenset({"operator-orchestration-service"})
@@ -86,7 +86,7 @@ class RuntimeSettings:
                 os.environ.get("CGG_WORK_DESIGN_MAX_CONTEXT_BYTES", "262144")
             ),
             work_design_max_budget_tokens=int(
-                os.environ.get("CGG_WORK_DESIGN_MAX_BUDGET_TOKENS", "8000")
+                os.environ.get("CGG_WORK_DESIGN_MAX_BUDGET_TOKENS", "32000")
             ),
             work_design_max_request_age_seconds=int(
                 os.environ.get("CGG_WORK_DESIGN_MAX_REQUEST_AGE_SECONDS", "300")

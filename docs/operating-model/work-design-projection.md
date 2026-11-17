@@ -41,6 +41,20 @@ scope. The original protected artifact and denial evidence remain retained;
 the workflow must not treat a partial excerpt as the complete selected draft.
 Ordinary advice without a draft scope retains its bounded-summary behavior.
 
+### Detailed architectural context
+
+Work Design Context and Build Tree may request up to 32,000 tokens within the
+existing 262,144-byte context bound. This accommodates complete multi-view
+architecture and its current tree; it does not expand other workflow budgets,
+skip redaction or permit a shortened editable draft. An installation can lower
+`CGG_WORK_DESIGN_MAX_BUDGET_TOKENS`; requests beyond that setting remain denied.
+OOS must retain the exact budget binding, and the provider owner must separately
+check whether its selected backend can handle the admitted input. CGG admission
+does not attest model capacity or grant provider execution authority.
+
+This extension is staged maintenance and requires paired OOS/Platform/Console
+acceptance and activation before live qualification.
+
 This is operator-approved maintenance Landing Unit
 `maintenance-advisor-context-completeness-20261111` in the Console advisor preview
 batch. It changes only existing projection denial behavior and preserves the
