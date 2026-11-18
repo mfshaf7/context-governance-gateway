@@ -10,7 +10,7 @@ from pathlib import Path
 from httpx import ASGITransport, AsyncClient
 from jsonschema import Draft202012Validator
 
-from cgg_api.app import create_app
+from cgg_api.app import create_app, RefinementAssistRequest
 from cgg_api.runtime import RuntimeSettings
 
 
@@ -81,6 +81,42 @@ def _validate_request_schema(payload: dict[str, object]) -> None:
 
 
 class RefinementApiTests(unittest.IsolatedAsyncioTestCase):
+    def test_http_assist_fields_match_the_published_request_contract(self) -> None:
+        schema = json.loads((SCHEMA_ROOT / "refinement-context-projection-request.schema.json").read_text())
+        self.assertEqual(set(RefinementAssistRequest.model_fields), set(schema["$defs"]["assistRequest"]["properties"]))
+
+
+    async def test_http_admits_related_drafts_without_losing_binding_or_redaction(self) -> None:
+        payload = _payload()
+        assist = payload["assist_request"]
+        value = "API_TOKEN=secret-draft"
+        assist["target"]["draft_value"] = value
+        assist["related_drafts"] = [{"field_key": "definition_of_ready", "node_id": "feature-756", "value": value}]
+        payload["assist_request_digest"] = "sha256:" + hashlib.sha256(_canonical(assist).encode()).hexdigest()
+        work = {key: assist[key] for key in ("package_ref", "source_ref", "source_revision")}
+        work.update(source_work_design_receipt_id=assist["packet"]["source_work_design_receipt_id"],
+            coverage="Selected item only; local drafts are unaccepted",
+            nodes=[{"id": "feature-756", "kind": "Feature", "title": "Selected work", "description": "Canonical description"}],
+            metadata=[{"node_id": "feature-756", "field_key": "definition_of_ready", "backend_field": "definition_of_ready", "field_kind": "long_text", "required": True, "status": "complete", "source_value": assist["target"]["source_value"], "draft_value": value, "allowed_values": [], "validation_hint": "Review entry conditions"}])
+        payload["work_context"] = work
+        _validate_request_schema(payload)
+        with tempfile.TemporaryDirectory() as tmp:
+            app = create_app(RuntimeSettings(root=Path(tmp), runtime_profile_state="active", refinement_caller_shared_secret=CALLER_SECRET))
+            headers = {"x-cgg-caller-id": "operator-orchestration-service", "x-cgg-caller-secret": CALLER_SECRET}
+            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+                response = await client.post("/v1/context/refinement/projections", json=payload, headers=headers)
+                self.assertEqual(response.status_code, 200, response.text)
+                body = response.json()
+                self.assertNotIn("secret-draft", body["content"])
+                self.assertNotIn("secret-value", body["content"])
+                self.assertIn("related_drafts", body["content"])
+                for change in [lambda row: row.update(approved=True), lambda row: row.update(node_id="foreign-item"), lambda row: row.update(value="x" * 16001)]:
+                    bad = json.loads(json.dumps(payload)); change(bad["assist_request"]["related_drafts"][0])
+                    bad["assist_request_digest"] = "sha256:" + hashlib.sha256(_canonical(bad["assist_request"]).encode()).hexdigest()
+                    denied = await client.post("/v1/context/refinement/projections", json=bad, headers=headers)
+                    self.assertGreaterEqual(denied.status_code, 400)
+
+
     async def test_conversation_is_complete_redacted_and_cannot_forge_system_authority(self) -> None:
         payload = _payload()
         assist = payload["assist_request"]

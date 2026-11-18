@@ -110,3 +110,16 @@ only for number fields. It remains inside the same redacted, budgeted and
 digest-bound context. Each metadata row carries that record's native choices,
 not a whole-group intersection; OOS validates selection and permissions before
 admission. This extension gives the model field facts without mutation authority.
+
+
+The HTTP request model admits the same optional bounded related-draft rows as the
+published schema and projection validator. Each row has only field identity,
+node identity and a value of at most 16,000 characters; the list permits at most
+256 rows. HTTP serialization retains supplied rows for canonical digest and owner
+wrapper checks. Unknown row keys remain forbidden. Real HTTP/ASGI tests cover
+admission, redaction and denial; direct projector tests alone do not qualify the
+HTTP boundary. This closes the native ingress rejection found during publication.
+
+Operator-approved maintenance, `feature_single_landing_unit`,
+`refinement-packet-read-budget-cgg-20261119`; Gary authors, delegated human reviews.
+The existing paired Security decision and normal activation remain required.
