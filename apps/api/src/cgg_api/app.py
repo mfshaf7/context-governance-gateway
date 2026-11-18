@@ -116,6 +116,13 @@ class RefinementConversationTurn(BaseModel):
     text: str = Field(max_length=12000)
 
 
+class RefinementRelatedDraft(BaseModel):
+    model_config = {"extra": "forbid"}
+    field_key: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    node_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
+    value: str = Field(max_length=16000)
+
+
 class RefinementAssistRequest(BaseModel):
     model_config = {"extra": "forbid"}
 
@@ -132,6 +139,7 @@ class RefinementAssistRequest(BaseModel):
     target: RefinementTargetBinding
     operator_prompt: str = Field(min_length=1, max_length=4_000)
     conversation: list[RefinementConversationTurn] | None = Field(default=None, max_length=8)
+    related_drafts: list[RefinementRelatedDraft] | None = Field(default=None, max_length=256)
 
 
 class RefinementContextProjectionRequest(BaseModel):
