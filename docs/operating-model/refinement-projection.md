@@ -81,3 +81,32 @@ The projection preserves:
 
 The Governance Operations Console remains an OOS client. It must not call this
 CGG route directly or interpret CGG as advice authority.
+
+## Paired maintenance: selected drafts and planning facts
+
+The maintenance extension admits bounded optional `related_drafts` in the assist
+request and optional `metadata`, `planning_rules` and node planning snapshots in
+the owner work context. The existing OOS caller owns canonical field/selection
+validation; CGG checks the closed shapes, unique field/node identities, matching
+source/receipt, selected-node coverage and correspondence of supplied drafts.
+Draft values remain explicitly unaccepted operator data, not instructions or
+canonical facts. All enriched input passes the same redaction and complete
+context budget. Changed drafts or planning facts change context digests and
+replay identity. An oversized complete context is refused, never silently cut.
+No old caller is required to provide the new context. Related drafts cannot be
+projected without their bound owner wrapper. All three authority flags remain
+false; no Catalog, model or Delivery action is introduced.
+
+Tracking: operator-approved maintenance, Landing Unit Decision
+`child_isolated_landing_unit`, `refinement-advisor-context-20261119`. Gary authors
+and the standing delegated human reviews this separate admission/runtime rollback
+unit. The [paired source review](https://github.com/mfshaf7/security-architecture/blob/main/docs/reviews/components/2026-11-19-refinement-advisor-context.md)
+retains source-vs-runtime evidence; publication is operator-approved. This existing operator surface is the CGG
+maintenance tracking home; no new owner record or generic validator is introduced.
+
+
+The metadata wrapper also admits optional `numeric_type` (`integer` or `decimal`)
+only for number fields. It remains inside the same redacted, budgeted and
+digest-bound context. Each metadata row carries that record's native choices,
+not a whole-group intersection; OOS validates selection and permissions before
+admission. This extension gives the model field facts without mutation authority.

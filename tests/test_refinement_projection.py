@@ -92,6 +92,49 @@ def _request(**overrides: object) -> RefinementProjectionRequest:
 
 
 class RefinementProjectionTests(unittest.TestCase):
+    def test_related_drafts_planning_and_choices_are_bound_redacted_and_closed(self) -> None:
+        assist = _assist_request()
+        node = assist["target"]["selected_node_ids"][0]
+        assist["related_drafts"] = [{"node_id": node, "field_key": "target-pi", "value": "API_TOKEN=secret-draft"}]
+        work = {key: assist[key] for key in ("package_ref", "source_ref", "source_revision")}
+        work.update(source_work_design_receipt_id=assist["packet"]["source_work_design_receipt_id"], coverage="Canonical facts; drafts remain unaccepted",
+            nodes=[{"id": key, "kind": "Feature", "title": "Selected outcome", "description": "Local project", "planning": {"status": "new", "target_pi": "", "iteration": "", "owner_repo": "repo-a"}} for key in assist["target"]["selected_node_ids"]],
+            metadata=[{"node_id": node, "field_key": "target-pi", "backend_field": "target_pi", "field_kind": "select", "required": False, "status": "complete", "source_value": "", "draft_value": "API_TOKEN=secret-draft", "allowed_values": ["PI-test"], "validation_hint": "Catalog choices"}],
+            planning_rules={"workflow_id": "planning", "backlog_iteration_label": "Backlog", "iteration_prefix_templates": ["<target_pi> / "], "target_pi_required_types": ["Task"], "iteration_required_types": ["Feature"]})
+        request = _request(assist_request=assist, work_context=work)
+        request.validate_shape()
+        _validate_schema("refinement-context-projection-request.schema.json", {"schema_version": 1, "idempotency_key": request.idempotency_key, "workflow_session_id": request.workflow_session_id, "execution_id": request.execution_id, "requested_at": request.requested_at, "assist_request": assist, "assist_request_digest": request.assist_request_digest, "work_context": work, "budget_tokens": request.budget_tokens})
+        with tempfile.TemporaryDirectory() as tmp:
+            service = ContextGatewayService(RuntimeSettings(root=Path(tmp), runtime_profile_state="active", refinement_caller_shared_secret=CALLER_SECRET))
+            result = service.refinement_projector.project(request, caller_id="operator-orchestration-service", caller_secret=CALLER_SECRET, now=NOW)
+            self.assertNotIn("secret-draft", result["content"])
+            self.assertIn("PI-test", result["content"])
+            self.assertEqual(result["binding"]["context_digest"], _digest(request.context))
+        for change in [lambda w: w["metadata"][0].update(node_id="foreign"), lambda w: w["metadata"].append(w["metadata"][0].copy()), lambda w: w["metadata"][0].update(draft_value="changed"), lambda w: w["nodes"][0]["planning"].update(execute="denied")]:
+            altered = json.loads(json.dumps(work)); change(altered)
+            with self.assertRaises(RefinementProjectionError):
+                _request(assist_request=assist, work_context=altered).validate_shape()
+        with self.assertRaises(RefinementProjectionError):
+            _request(assist_request=assist).validate_shape()
+
+    def test_numeric_constraints_are_retained_in_admitted_context(self) -> None:
+        assist = _assist_request()
+        node = assist["target"]["selected_node_ids"][0]
+        work = {key: assist[key] for key in ("package_ref", "source_ref", "source_revision")}
+        work.update(source_work_design_receipt_id=assist["packet"]["source_work_design_receipt_id"], coverage="Selected items only",
+            nodes=[{"id": key, "kind": "Feature", "title": "Selected outcome", "description": ""} for key in assist["target"]["selected_node_ids"]],
+            metadata=[{"node_id": node, "field_key": "business-value", "backend_field": "planned_business_value", "field_kind": "number", "numeric_type": "integer", "required": False, "status": "complete", "source_value": "8", "allowed_values": [], "validation_hint": "Whole number"}])
+        request = _request(assist_request=assist, work_context=work)
+        request.validate_shape()
+        with tempfile.TemporaryDirectory() as tmp:
+            service = ContextGatewayService(RuntimeSettings(root=Path(tmp), runtime_profile_state="active", refinement_caller_shared_secret=CALLER_SECRET))
+            result = service.refinement_projector.project(request, caller_id="operator-orchestration-service", caller_secret=CALLER_SECRET, now=NOW)
+            self.assertEqual(json.loads(result["content"])["work_context"]["metadata"][0]["numeric_type"], "integer")
+        for invalid in ["unknown", 1]:
+            changed = json.loads(json.dumps(work)); changed["metadata"][0]["numeric_type"] = invalid
+            with self.assertRaises(RefinementProjectionError):
+                _request(assist_request=assist, work_context=changed).validate_shape()
+
     def test_owner_work_context_is_redacted_bound_and_replay_sensitive(self) -> None:
         assist = _assist_request()
         work = {key: assist[key] for key in ("package_ref", "source_ref", "source_revision")}

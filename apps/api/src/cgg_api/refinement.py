@@ -92,7 +92,7 @@ class RefinementProjectionRequest:
         return _digest_text(self.context)
 
     def validate_shape(self) -> None:
-        if set(self.assist_request) - {"conversation"} != {
+        if set(self.assist_request) - {"conversation", "related_drafts"} != {
             "schema_version",
             "request_id",
             "correlation_id",
@@ -115,6 +115,17 @@ class RefinementProjectionRequest:
             if not isinstance(turns, list) or len(turns) > 8 or any(not isinstance(turn, dict) or set(turn) != {"role", "text"}
                     or turn["role"] not in ("operator", "advisor") or not isinstance(turn["text"], str) or len(turn["text"]) > 12000 for turn in turns):
                 raise RefinementProjectionError("context_projection_invalid", "Conversation must retain complete bounded working messages")
+        if "related_drafts" in self.assist_request:
+            drafts = self.assist_request["related_drafts"]
+            if not isinstance(drafts, list) or len(drafts) > 256 or any(
+                not isinstance(item, dict) or set(item) != {"field_key", "node_id", "value"}
+                or not isinstance(item["field_key"], str) or not _STABLE_ID.fullmatch(item["field_key"])
+                or not isinstance(item["node_id"], str) or not _STABLE_ID.fullmatch(item["node_id"])
+                or not isinstance(item["value"], str) or len(item["value"]) > 16000 for item in drafts):
+                raise RefinementProjectionError("context_projection_invalid", "Related drafts must be bounded typed field values")
+            keys = [(item["field_key"], item["node_id"]) for item in drafts]
+            if len(keys) != len(set(keys)):
+                raise RefinementProjectionError("context_projection_invalid", "Related draft targets must be unique")
         for name, value in {
             "request_id": self.request_id,
             "correlation_id": self.correlation_id,
@@ -255,6 +266,8 @@ class RefinementProjectionRequest:
         _parse_timestamp(self.requested_at)
         if self.work_context is not None:
             self._validate_work_context()
+        elif self.assist_request.get("related_drafts"):
+            raise RefinementProjectionError("context_projection_invalid", "Related drafts require bound owner context")
 
     def binding(self, caller_id: str) -> dict[str, object]:
         task = self._object("task")
@@ -307,20 +320,48 @@ class RefinementProjectionRequest:
 
     def _validate_work_context(self) -> None:
         value = self.work_context
-        valid = isinstance(value, dict) and set(value) == {"package_ref", "source_ref", "source_revision", "source_work_design_receipt_id", "nodes", "coverage"}
+        valid = isinstance(value, dict) and set(value) - {"metadata", "planning_rules"} == {"package_ref", "source_ref", "source_revision", "source_work_design_receipt_id", "nodes", "coverage"}
         if valid:
             valid = all(value[key] == self.assist_request.get(key) for key in ("package_ref", "source_ref", "source_revision"))
             valid = valid and value["source_work_design_receipt_id"] == (self.assist_request.get("packet") or {}).get("source_work_design_receipt_id")
             valid = valid and isinstance(value["coverage"], str) and bool(value["coverage"].strip()) and isinstance(value["nodes"], list) and bool(value["nodes"])
         if valid:
             nodes = value["nodes"]
-            valid = all(isinstance(node, dict) and set(node) == {"id", "kind", "title", "description"}
-                        and all(isinstance(node[key], str) for key in node)
+            valid = all(isinstance(node, dict) and set(node) - {"planning"} == {"id", "kind", "title", "description"}
+                        and all(isinstance(node[key], str) for key in ("id", "kind", "title", "description"))
+                        and ("planning" not in node or isinstance(node["planning"], dict) and set(node["planning"]) == {"status", "target_pi", "iteration", "owner_repo"} and all(isinstance(v, str) for v in node["planning"].values()))
                         and bool(_STABLE_ID.fullmatch(node["id"])) and bool(node["title"].strip())
                         for node in nodes)
             if valid:
                 ids = [node["id"] for node in nodes]
                 valid = len(ids) == len(set(ids)) and set((self.assist_request.get("target") or {}).get("selected_node_ids", [])).issubset(ids)
+        if valid and "metadata" in value:
+            items = value["metadata"]
+            required = {"node_id", "field_key", "backend_field", "field_kind", "required", "status", "source_value", "allowed_values", "validation_hint"}
+            valid = isinstance(items, list) and len(items) <= 4096 and all(
+                isinstance(item, dict) and set(item) - {"draft_value", "numeric_type"} == required
+                and all(isinstance(item[key], str) for key in ("node_id", "field_key", "backend_field", "field_kind", "status", "source_value", "validation_hint"))
+                and item["node_id"] in ids and bool(_STABLE_ID.fullmatch(item["field_key"]))
+                and item["field_kind"] in ("generated", "long_text", "number", "select", "short_text")
+                and ("numeric_type" not in item or item["field_kind"] == "number" and item["numeric_type"] in ("integer", "decimal"))
+                and type(item["required"]) is bool and item["status"] in ("blocked", "complete", "missing")
+                and isinstance(item["allowed_values"], list) and all(isinstance(v, str) for v in item["allowed_values"])
+                and len(item["allowed_values"]) == len(set(item["allowed_values"]))
+                and ("draft_value" not in item or isinstance(item["draft_value"], str) and len(item["draft_value"]) <= 16000)
+                for item in items)
+            if valid:
+                keys = [(item["field_key"], item["node_id"]) for item in items]
+                valid = len(keys) == len(set(keys)) and all(any(
+                    item["field_key"] == draft["field_key"] and item["node_id"] == draft["node_id"] and item.get("draft_value") == draft["value"]
+                    for item in items) for draft in self.assist_request.get("related_drafts", []))
+        elif valid and self.assist_request.get("related_drafts"):
+            valid = False
+        if valid and "planning_rules" in value:
+            rules = value["planning_rules"]
+            lists = ("iteration_prefix_templates", "target_pi_required_types", "iteration_required_types")
+            valid = isinstance(rules, dict) and set(rules) == {"workflow_id", "backlog_iteration_label", *lists}
+            valid = valid and all(isinstance(rules[key], str) for key in ("workflow_id", "backlog_iteration_label"))
+            valid = valid and all(isinstance(rules[key], list) and all(isinstance(v, str) for v in rules[key]) for key in lists)
         if not valid:
             raise RefinementProjectionError("context_projection_invalid", "Work context must bind the same source, receipt and selected nodes without duplicate or foreign fields")
 
