@@ -123,3 +123,15 @@ HTTP boundary. This closes the native ingress rejection found during publication
 Operator-approved maintenance, `feature_single_landing_unit`,
 `refinement-packet-read-budget-cgg-20261119`; Gary authors, delegated human reviews.
 The existing paired Security decision and normal activation remain required.
+
+
+Complete selected-field context now supports the same finite 32,000-token
+admission ceiling as Work Design. The HTTP model, published schema and runtime
+ceiling agree; legacy callers may keep their smaller requested allowance. The
+262,144-byte ceiling, dedicated caller, redaction, bound source/draft identity
+and refusal to issue a truncated projection remain unchanged. This covers real
+selected/ancestor source facts, related drafts and bounded conversation after
+fields have been filled; it does not admit unrelated branches or grant model
+invocation or mutation authority. Provider capacity remains a separate gateway
+selection check. Operator-approved maintenance, `child_isolated_landing_unit`,
+`refinement-selected-scope-cgg-20261119`, through the existing paired review.

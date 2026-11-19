@@ -153,7 +153,7 @@ class RefinementContextProjectionRequest(BaseModel):
     assist_request: RefinementAssistRequest
     assist_request_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     work_context: dict[str, Any] | None = None
-    budget_tokens: int = Field(default=4_000, ge=1, le=8_000)
+    budget_tokens: int = Field(default=4_000, ge=1, le=32_000)
 
 
 class LifecycleOperatorBinding(BaseModel):
