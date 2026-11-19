@@ -86,6 +86,40 @@ class RefinementApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(RefinementAssistRequest.model_fields), set(schema["$defs"]["assistRequest"]["properties"]))
 
 
+    async def test_complete_selected_context_uses_bounded_planning_allowance_without_truncation(self) -> None:
+        payload = _payload(budget_tokens=32_000)
+        assist = payload["assist_request"]
+        work = {key: assist[key] for key in ("package_ref", "source_ref", "source_revision")}
+        work.update(source_work_design_receipt_id=assist["packet"]["source_work_design_receipt_id"],
+                    coverage="Complete selected source and ancestors, with original facts retained",
+                    nodes=[{"id": "feature-756", "kind": "Feature", "title": "Selected work",
+                            "description": "Retain this selected source fact. " * 1500 + " FINAL_SELECTED_FACT_MUST_REACH_ADVISOR"}])
+        payload["work_context"] = work
+        _validate_request_schema(payload)
+        with tempfile.TemporaryDirectory() as tmp:
+            settings = RuntimeSettings(root=Path(tmp), runtime_profile_state="active", refinement_caller_shared_secret=CALLER_SECRET)
+            self.assertEqual(settings.refinement_max_budget_tokens, 32_000)
+            self.assertEqual(settings.agent_console_max_budget_tokens, 8_000)
+            self.assertEqual(settings.lifecycle_max_budget_tokens, 8_000)
+            self.assertEqual(settings.refinement_max_context_bytes, 262_144)
+            headers = {"x-cgg-caller-id": "operator-orchestration-service", "x-cgg-caller-secret": CALLER_SECRET}
+            async with AsyncClient(transport=ASGITransport(app=create_app(settings)), base_url="http://test") as client:
+                complete = await client.post("/v1/context/refinement/projections", json=payload, headers=headers)
+                self.assertEqual(complete.status_code, 200, complete.text)
+                self.assertIn("FINAL_SELECTED_FACT_MUST_REACH_ADVISOR", complete.json()["content"])
+                self.assertTrue(all(value is False for value in complete.json()["authority"].values()))
+                limited = await client.post("/v1/context/refinement/projections", json={**payload,
+                    "idempotency_key": "old-small-selected-context", "budget_tokens": 8_000}, headers=headers)
+                self.assertEqual(limited.status_code, 413, limited.text)
+                excessive = await client.post("/v1/context/refinement/projections", json={**payload,
+                    "idempotency_key": "over-finite-planning-bound", "budget_tokens": 32_001}, headers=headers)
+                self.assertGreaterEqual(excessive.status_code, 400)
+                oversized = json.loads(json.dumps(payload))
+                oversized["idempotency_key"] = "over-retained-byte-bound"
+                oversized["work_context"]["nodes"][0]["description"] = "x" * 262_145
+                denied = await client.post("/v1/context/refinement/projections", json=oversized, headers=headers)
+                self.assertEqual(denied.status_code, 413, denied.text)
+
     async def test_http_admits_related_drafts_without_losing_binding_or_redaction(self) -> None:
         payload = _payload()
         assist = payload["assist_request"]

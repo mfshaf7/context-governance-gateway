@@ -70,7 +70,7 @@ class WorkDesignApiTests(unittest.IsolatedAsyncioTestCase):
             settings = RuntimeSettings(root=Path(tmp), runtime_profile_state="active",
                                        work_design_caller_shared_secret=CALLER_SECRET)
             self.assertEqual(settings.agent_console_max_budget_tokens, 8_000)
-            self.assertEqual(settings.refinement_max_budget_tokens, 8_000)
+            self.assertEqual(settings.refinement_max_budget_tokens, 32_000)
             headers = {"x-cgg-caller-id": "operator-orchestration-service", "x-cgg-caller-secret": CALLER_SECRET}
             async with AsyncClient(transport=ASGITransport(app=create_app(settings)), base_url="http://test") as client:
                 complete = await client.post("/v1/context/work-design/projections", json=payload, headers=headers)
